@@ -1,0 +1,2248 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+<title>Mgboard_Web — Masaram Gondi Keyboard (मासाराम गोंडी कीबोर्ड)</title>
+<meta name="description" content="Mgboard_Web — Privacy-first Masaram Gondi Web Keyboard by Saiyyam Ji (@saiyyamdeveloper). Supports Gondi, Devanagari transliteration, and English QWERTY with custom symbols and calculator."/>
+<meta name="theme-color" content="#1c1c1e"/>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⌨️</text></svg>"/>
+<style>
+@font-face {
+  font-family: 'Mgondi';
+  src: local('Noto Sans Masaram Gondi'),
+       url('https://raw.githubusercontent.com/notofonts/noto-fonts/main/unhinted/ttf/NotoSansMasaramGondi/NotoSansMasaramGondi-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+
+:root {
+  --bg: #1c1c1e;
+  --panel: #2c2c2e;
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --key: #3f3f42;
+  --key2: #353538;
+  --key-hover: #4a4a4f;
+  --key-active: #5c5c63;
+  --ink: #f2f2f7;
+  --dim: #98989d;
+  --accent: #0a84ff;
+  --accent-hover: #3d9eff;
+  --accent-active: #0066cc;
+  --danger-bg: #4a2f33;
+  --danger-hover: #5e3b40;
+  --danger-ink: #ff9b9b;
+  --special-bg: #3b3b56;
+  --special-hover: #4b4b6e;
+  --special-ink: #ccd6ff;
+  --vr-bg: #324734;
+  --vr-hover: #405942;
+  --vr-ink: #c9f0c9;
+  
+  --key-h: 44px;
+  --key-font: 18px;
+  --row-gap: 4px;
+  --row-pad: 2px 3px;
+  --kb-pad: 6px 4px 6px;
+  --wrap-max: 680px;
+  --radius: 8px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  height: 100%;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+body {
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  padding: 6px 8px calc(3px + env(safe-area-inset-bottom, 0px)) 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wrap {
+  width: 100%;
+  max-width: var(--wrap-max);
+  height: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+/* Header & Meta Area */
+.header-area {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 4px;
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
+
+h1 {
+  font-size: clamp(14px, 3.8vw, 18px);
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ver {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(10, 132, 255, 0.12);
+  padding: 2px 7px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.header-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.gh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #fff;
+  background: #2c2c2e;
+  border: 1px solid rgba(255,255,255,0.15);
+  font-size: 11px;
+  font-weight: 500;
+  text-decoration: none;
+  padding: 3px 8px;
+  border-radius: 999px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.gh-btn:hover {
+  background: #3a3a3e;
+  border-color: rgba(255,255,255,0.3);
+}
+
+.info-btn {
+  background: none;
+  border: none;
+  color: var(--dim);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+.info-btn:hover {
+  color: #fff;
+}
+
+/* Toolbar Controls - 1-Line 5-Column Grid */
+.toolbar {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
+  flex: 0 0 auto;
+}
+
+.clear {
+  background: var(--key2);
+  color: var(--ink);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 6px 2px;
+  font-size: clamp(10px, 2.6vw, 12px);
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  transition: background 0.15s, border-color 0.15s, transform 0.08s;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  white-space: nowrap;
+}
+.clear:hover {
+  background: #444448;
+  border-color: #666;
+  color: #fff;
+}
+.clear:active {
+  background: #55555a;
+  transform: scale(0.97);
+}
+
+/* Output Display Box — Fills Available Middle Space */
+.outbox {
+  flex: 1 1 auto;
+  min-height: 60px;
+  background: #111114;
+  border: 1px solid #333;
+  border-radius: 12px 12px 0 0;
+  padding: 10px 14px;
+  overflow-y: auto;
+  border-bottom: none;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.4);
+  scrollbar-width: thin;
+  scrollbar-color: #555 transparent;
+}
+.outbox::-webkit-scrollbar {
+  width: 5px;
+}
+.outbox::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+
+.out {
+  font-family: 'Mgondi', 'Noto Sans Masaram Gondi', 'Noto Sans Devanagari', -apple-system, sans-serif;
+  font-size: clamp(15px, 3.8vw, 18px);
+  line-height: 1.5;
+  min-height: 40px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: #fff;
+}
+
+/* Text Caret / Cursor */
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.15em;
+  background: #0a84ff;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  border-radius: 1px;
+  animation: caretBlink 1s step-start infinite;
+}
+@keyframes caretBlink { 50% { opacity: 0; } }
+
+/* Keyboard Container — Anchored at the Bottom */
+.kb {
+  flex: 0 0 auto;
+  margin-top: 0;
+  margin-bottom: 0;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 0 0 14px 14px;
+  padding: var(--kb-pad);
+  box-shadow: 0 -2px 16px rgba(0,0,0,0.3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--row-gap);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.row {
+  display: flex;
+  gap: var(--row-gap);
+  padding: var(--row-pad);
+  width: 100%;
+}
+
+/* Row 2 Indent for QWERTY (ASDFGHJKL) */
+.row-indent {
+  padding-left: 5%;
+  padding-right: 5%;
+}
+
+/* Base Key Styling */
+.key {
+  flex: 1;
+  height: var(--key-h);
+  border: none;
+  border-radius: var(--radius);
+  background: var(--key);
+  color: var(--ink);
+  font-family: 'Mgondi', 'Noto Sans Masaram Gondi', 'Noto Sans Devanagari', -apple-system, sans-serif;
+  font-size: var(--key-font);
+  line-height: 1.2;
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 0;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  transition: background-color 0.08s ease-out, transform 0.05s ease-out;
+}
+
+.key:hover {
+  background: var(--key-hover);
+}
+
+.key:active, .key.pressed {
+  background: var(--key-active);
+  transform: scale(0.96);
+  transition: none;
+}
+
+.key .glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.1;
+  pointer-events: none;
+}
+
+.key .lbl {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.2px;
+  color: var(--dim);
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Long press indicator dot */
+.key.lp::after {
+  content: '';
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+/* Control & Action Keys */
+.key.ctrl {
+  background: var(--key2);
+}
+.key.ctrl:hover {
+  background: #424246;
+}
+
+/* Spacebar */
+.key.wide {
+  flex: 4.4;
+  background: var(--key2);
+  touch-action: none;
+}
+.key.wide:hover {
+  background: #424246;
+}
+.spaceLbl {
+  font-size: clamp(12px, 2.8vw, 14px);
+  color: #d1d1d6;
+  font-weight: 500;
+}
+
+/* Special & Conjunct Keys */
+.key.special {
+  background: var(--special-bg);
+  color: var(--special-ink);
+}
+.key.special:hover {
+  background: var(--special-hover);
+}
+
+/* Danger / Backspace Keys */
+.key.danger {
+  background: var(--danger-bg);
+  color: var(--danger-ink);
+}
+.key.danger:hover {
+  background: var(--danger-hover);
+}
+.key.danger .glyph {
+  font-size: clamp(16px, 3.8vw, 19px);
+}
+
+/* Toggle Keys */
+.key.toggle {
+  background: var(--key2);
+  color: var(--ink);
+}
+.key.toggle:hover {
+  background: #424246;
+}
+.key.toggle .glyph {
+  font-size: clamp(12px, 3vw, 14px);
+  font-weight: 600;
+}
+.key.toggle .toggle-latin {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  letter-spacing: 0.2px;
+}
+.key.toggle .toggle-sm {
+  font-size: clamp(13px, 3vw, 15px);
+  font-family: 'Mgondi', 'Noto Sans Masaram Gondi', sans-serif;
+}
+
+/* Link in Numpad */
+.key.numpage-link {
+  flex: 1;
+}
+.key.numpage-link .glyph {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.15;
+  font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+  white-space: pre;
+}
+
+/* QWERTY Shift Keys */
+.key.shift-oneshot {
+  background: #2b4560;
+  color: #bcd9ff;
+}
+.key.shift-oneshot:hover {
+  background: #36577a;
+}
+.key.shift-caps {
+  background: var(--accent);
+  color: #fff;
+}
+.key.shift-caps:hover {
+  background: var(--accent-hover);
+}
+
+/* Vocalic-R Key */
+.key.vr {
+  background: var(--vr-bg);
+  color: var(--vr-ink);
+}
+.key.vr:hover {
+  background: var(--vr-hover);
+}
+
+/* Enter Key */
+.key.enter {
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius);
+}
+.key.enter:hover {
+  background: var(--accent-hover);
+}
+.key.enter:active, .key.enter.pressed {
+  background: var(--accent-active);
+}
+
+/* Emoji Key */
+.key.emojiKey .lbl {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 11px;
+  color: var(--dim);
+  margin-top: 1px;
+}
+
+/* Devanagari specific font styling */
+#kbH .key .glyph {
+  font-family: 'Noto Sans Devanagari', -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: calc(var(--key-font) * 0.95);
+}
+
+/* QWERTY specific font styling */
+#kbQ .qwertyKey .glyph {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: calc(var(--key-font) * 1.02);
+  font-weight: 500;
+}
+
+/* ============ Calculator Page Grid Layout ============ */
+.calc-grid-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1.65fr 1.65fr 1.65fr 1fr;
+  grid-template-rows: repeat(4, var(--key-h));
+  gap: var(--row-gap);
+  padding: var(--row-pad);
+}
+
+.calc-ops {
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  display: flex;
+  flex-direction: column;
+  gap: var(--row-gap);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #666 transparent;
+}
+.calc-ops .key {
+  flex-shrink: 0;
+  height: calc((100% - (3 * var(--row-gap))) / 4);
+}
+.calc-ops::-webkit-scrollbar { width: 3px; }
+.calc-ops::-webkit-scrollbar-thumb { background: #666; border-radius: 2px; }
+.calc-ops::-webkit-scrollbar-track { background: transparent; }
+
+.calc-split {
+  display: flex;
+  gap: var(--row-gap);
+  height: 100%;
+}
+.calc-split .key {
+  height: 100%;
+}
+
+/* ============ Long-Press Popup ============ */
+.pop {
+  position: fixed;
+  z-index: 90;
+  background: #ffffff;
+  color: #111111;
+  border-radius: 12px;
+  padding: 8px 14px;
+  font-family: 'Mgondi', 'Noto Sans Masaram Gondi', 'Noto Sans Devanagari', sans-serif;
+  font-size: clamp(24px, 5.5vw, 30px);
+  line-height: 1.2;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.6);
+  pointer-events: none;
+  white-space: nowrap;
+  text-align: center;
+  display: none;
+  border: 1px solid rgba(0,0,0,0.1);
+  transform: translate(-50%, -100%);
+}
+.pop .pl {
+  display: block;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 10px;
+  color: #666;
+  margin-top: 2px;
+}
+
+/* ============ Overlays and Modals ============ */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
+.overlay.open {
+  display: flex;
+}
+
+.modal {
+  background: var(--panel);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 18px;
+  width: min(560px, 94vw);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.7);
+  animation: modalFadeIn 0.18s ease-out;
+}
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.mhead {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.mhead input {
+  flex: 1;
+  background: #111;
+  border: 1px solid #444;
+  border-radius: 10px;
+  color: #fff;
+  padding: 9px 12px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.mhead input:focus {
+  border-color: var(--accent);
+}
+.mhead .x {
+  background: #444;
+  border: none;
+  color: #fff;
+  border-radius: 10px;
+  padding: 9px 13px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+.mhead .x:hover {
+  background: #555;
+}
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  scrollbar-width: thin;
+}
+.tab {
+  flex: 0 0 auto;
+  background: #3a3a3d;
+  border: none;
+  color: #ddd;
+  border-radius: 999px;
+  padding: 6px 13px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.tab:hover {
+  background: #4a4a4f;
+}
+.tab.on {
+  background: var(--accent);
+  color: #fff;
+}
+
+.egrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+  gap: 4px;
+  overflow-y: auto;
+  padding: 4px;
+  min-height: 160px;
+  max-height: 48vh;
+}
+.egrid button {
+  font-size: 18px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 2px;
+  cursor: pointer;
+  line-height: 1.1;
+  transition: background 0.12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.egrid button:hover {
+  background: #4a4a4f;
+}
+.egrid button:active {
+  background: #5a5a60;
+}
+
+/* About / Info Modal Styles */
+.info-content {
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #ddd;
+  padding-right: 4px;
+}
+.info-content h2 {
+  font-size: 16px;
+  color: #fff;
+  margin-bottom: 6px;
+}
+.info-content p {
+  margin-bottom: 10px;
+}
+.info-content .repo-card {
+  background: #1e1e20;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.info-content .repo-card a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 13px;
+}
+.info-content .repo-card a:hover {
+  text-decoration: underline;
+}
+.info-content .repo-card span {
+  font-size: 11px;
+  color: var(--dim);
+}
+
+/* Toast Notifications */
+.toast {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: #ffffff;
+  color: #111111;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 6px 22px rgba(0,0,0,0.5);
+  opacity: 0;
+  transition: opacity 0.22s, transform 0.22s;
+  z-index: 120;
+  max-width: 90vw;
+  text-align: center;
+  pointer-events: none;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ============ Responsive Breakpoints & Fine-Tuning ============ */
+/* Small Phones (<=360px) */
+@media (max-width: 360px) {
+  :root {
+    --key-h: 39px;
+    --key-font: 16px;
+    --row-gap: 3px;
+    --row-pad: 1.5px 2px;
+    --kb-pad: 4px 3px 4px;
+  }
+  body { padding: 4px 4px calc(3px + env(safe-area-inset-bottom, 0px)) 4px; }
+  .toolbar { gap: 3px; }
+  .clear { padding: 5px 2px; font-size: 10px; }
+}
+
+/* Standard Phones (361px - 480px) */
+@media (min-width: 361px) and (max-width: 480px) {
+  :root {
+    --key-h: 44px;
+    --key-font: 18px;
+    --row-gap: 4px;
+    --row-pad: 2px 3px;
+    --kb-pad: 5px 4px 5px;
+  }
+}
+
+/* Large Phones / Phablets (481px - 767px) */
+@media (min-width: 481px) {
+  :root {
+    --key-h: 48px;
+    --key-font: 20px;
+    --row-gap: 5px;
+    --row-pad: 2.5px 4px;
+    --kb-pad: 6px 5px 6px;
+  }
+}
+
+/* Tablets / iPads (768px - 1023px) */
+@media (min-width: 768px) {
+  :root {
+    --key-h: 52px;
+    --key-font: 22px;
+    --row-gap: 6px;
+    --row-pad: 3px 5px;
+    --wrap-max: 640px;
+    --radius: 10px;
+    --kb-pad: 8px 6px 8px;
+  }
+  body { padding: 12px 16px calc(6px + env(safe-area-inset-bottom, 0px)) 16px; }
+  .toolbar { gap: 6px; }
+  .clear { padding: 8px 10px; font-size: 12px; }
+}
+
+/* Desktop & Large Displays (1024px+) */
+@media (min-width: 1024px) {
+  :root {
+    --key-h: 56px;
+    --key-font: 23px;
+    --row-gap: 7px;
+    --row-pad: 3px 6px;
+    --wrap-max: 680px;
+    --radius: 11px;
+    --kb-pad: 10px 8px 10px;
+  }
+  body { padding: 16px 20px calc(8px + env(safe-area-inset-bottom, 0px)) 20px; }
+}
+
+/* Landscape Mode for Mobile Phones (Short Viewports) */
+@media (max-height: 500px) and (orientation: landscape) {
+  body { padding: 3px 6px calc(2px + env(safe-area-inset-bottom, 0px)) 6px; }
+  :root {
+    --key-h: 30px;
+    --key-font: 14px;
+    --row-gap: 2px;
+    --row-pad: 1px 2px;
+    --kb-pad: 3px 3px 3px;
+  }
+  .header-area { margin-bottom: 2px; }
+  .toolbar { margin-bottom: 2px; }
+  .clear { padding: 3px 2px; font-size: 10px; }
+  .outbox {
+    min-height: 36px;
+    padding: 6px 10px;
+  }
+  .out {
+    min-height: 28px;
+    font-size: 13px;
+  }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header-area">
+    <div class="header-row">
+      <div class="title-group">
+        <h1>Mgboard_Web</h1>
+        <span class="ver">v16.0</span>
+      </div>
+      <div class="header-links">
+        <a class="gh-btn" href="https://github.com/saiyyamdeveloper" target="_blank" rel="noopener" title="GitHub @saiyyamdeveloper">
+          <svg height="14" width="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          @saiyyamdeveloper
+        </a>
+        <button class="info-btn" id="infoBtn" type="button" title="About / Help / Repositories">ℹ️</button>
+      </div>
+    </div>
+    
+    <div class="toolbar">
+      <button class="clear" id="copyBtn" type="button">📋 Copy</button>
+      <button class="clear" id="downloadBtn" type="button">⬇️ Save</button>
+      <button class="clear" id="shareBtn" type="button">📤 Share</button>
+      <button class="clear" id="inspectBtn" type="button">🔍 Unicode</button>
+      <button class="clear" id="clearBtn" type="button">↺ Clear</button>
+    </div>
+  </div>
+  
+  <div class="outbox">
+    <div class="out" id="out"></div>
+  </div>
+  
+  <div class="kb" id="kbL"></div>
+  <div class="kb" id="kbN" style="display:none"></div>
+  <div class="kb" id="kbNQ" style="display:none"></div>
+  <div class="kb" id="kbQ" style="display:none"></div>
+  <div class="kb" id="kbH" style="display:none"></div>
+</div>
+
+<!-- Info / About Modal Overlay -->
+<div class="overlay" id="infoOverlay">
+  <div class="modal">
+    <div class="mhead">
+      <span style="flex:1;font-size:15px;font-weight:700;">|| जय सेवा || — Mgboard_Web</span>
+      <button class="x" id="infoClose" type="button">✕</button>
+    </div>
+    <div class="info-content">
+      <p>🌿 <strong>Mgboard_Web</strong> मासाराम गोंडी लिपि (Masaram Gondi Script) के संरक्षण व डिजिटलीकरण के लिए बनाया गया वेब कीबोर्ड है।</p>
+      
+      <h2 style="margin-top:10px;">🌟 डेवलपर प्रोजेक्ट्स (Developer Repositories)</h2>
+      <div class="repo-card">
+        <a href="https://github.com/saiyyamdeveloper/Mgboard" target="_blank" rel="noopener">📱 Mgboard (Android Keyboard)</a>
+        <span>Privacy-first Android keyboard for Masaram Gondi with bundled Noto Sans Masaram Gondi font.</span>
+      </div>
+      <div class="repo-card">
+        <a href="https://github.com/saiyyamdeveloper/Hindi-Masaram-Gondi-Script-Converter" target="_blank" rel="noopener">🔄 Hindi ↔ Masaram Gondi Script Converter</a>
+        <span>Devanagari → Masaram Gondi converter, 75-key keyboard & FlorisBoard layouts.</span>
+      </div>
+      <div class="repo-card">
+        <a href="https://github.com/saiyyamdeveloper/MasaramGondiLipi-dictionary" target="_blank" rel="noopener">📖 Masaram Gondi Lipi Dictionary</a>
+        <span>गोंडी भाषा व लिपि शब्दकोश (Dictionary).</span>
+      </div>
+      <div class="repo-card">
+        <a href="https://github.com/saiyyamdeveloper" target="_blank" rel="noopener">👤 Saiyyam Ji GitHub Profile</a>
+        <span>Building tech for language & culture | Gondwana.</span>
+      </div>
+      
+      <h2 style="margin-top:12px;">⌨️ मुख्य फीचर्स (Key Features)</h2>
+      <ul style="padding-left:18px;font-size:12px;color:#ccc;display:flex;flex-direction:column;gap:4px;">
+        <li><strong>🌐 3-Mode Switcher:</strong> Gondi (Native) ↔ QWERTY (English) ↔ Hindi (Devanagari → Gondi).</li>
+        <li><strong>𑴎 + 𑴱 (Auto Matra):</strong> व्यंजन के बाद Row 1 ऑटोमैटिक मात्रा स्टेट में बदल जाती है (पूर्ण 10 मात्राएँ)।</li>
+        <li><strong>युक्त (Yukt Conjuncts):</strong> C1 + युक्त + C2 से संयुक्त अक्षर व रेफ़ बनता है।</li>
+        <li><strong>Spacebar Drag Cursor:</strong> स्पेसबार पर उंगली स्लाइड करके कर्सर को आसानी से मूव करें।</li>
+        <li><strong>🔍 Unicode Inspector:</strong> वास्तविक Hex Unicode कोडपॉइंट्स देखें और शेयर करें।</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- Emoji Modal Overlay -->
+<div class="overlay" id="emojiOverlay">
+  <div class="modal">
+    <div class="mhead">
+      <input id="emojiSearch" placeholder="Emoji खोजें…" type="text" autocomplete="off"/>
+      <button class="x" id="emojiClose" type="button">✕</button>
+    </div>
+    <div class="tabs" id="emojiTabs"></div>
+    <div class="egrid" id="emojiGrid"></div>
+  </div>
+</div>
+
+<!-- Unicode Inspector Overlay -->
+<div class="overlay" id="inspectOverlay">
+  <div class="modal">
+    <div class="mhead">
+      <span style="flex:1;font-size:14px;font-weight:600;">🔍 Unicode Inspector</span>
+      <button class="x" id="inspectClose" type="button">✕</button>
+    </div>
+    <div id="inspectText" style="font-family:'Mgondi','Noto Sans Masaram Gondi',sans-serif;font-size:22px;
+     background:#111114;border:1px solid #333;border-radius:10px;padding:10px 12px;margin-bottom:8px;
+     min-height:40px;word-break:break-all;"></div>
+    <div id="inspectCps" style="color:var(--dim);font-size:12px;word-break:break-all;
+     font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#111114;border:1px solid #333;
+     border-radius:10px;padding:10px 12px;margin-bottom:12px;max-height:30vh;overflow-y:auto;"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="clear" id="inspectCopy" type="button" style="flex:1;">📋 Copy</button>
+      <button class="clear" id="inspectDownload" type="button" style="flex:1;">⬇️ Download</button>
+      <button class="clear" id="inspectShare" type="button" style="flex:1;">📤 Share</button>
+    </div>
+  </div>
+</div>
+
+<!-- Long Press Popup Preview -->
+<div class="pop" id="pop"><span id="popGlyph"></span><span class="pl" id="popLabel"></span></div>
+<!-- Toast Feedback Notification -->
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ================================================================
+   Unicode constants — Masaram Gondi (Unicode 10.0+ / v17.0 chart verified)
+   ================================================================ */
+const CP = {
+  // Independent vowels (10)
+  A:'\u{11D00}',AA:'\u{11D01}',I:'\u{11D02}',II:'\u{11D03}',U:'\u{11D04}',UU:'\u{11D05}',
+  E:'\u{11D06}',AI:'\u{11D08}',O:'\u{11D09}',AU:'\u{11D0B}',
+  // Consonants (34) + conjunct letters (3) = 37
+  KA:'\u{11D0C}',KHA:'\u{11D0D}',GA:'\u{11D0E}',GHA:'\u{11D0F}',NGA:'\u{11D10}',
+  CA:'\u{11D11}',CHA:'\u{11D12}',JA:'\u{11D13}',JHA:'\u{11D14}',NYA:'\u{11D15}',
+  TTA:'\u{11D16}',TTHA:'\u{11D17}',DDA:'\u{11D18}',DDHA:'\u{11D19}',NNA:'\u{11D1A}',
+  TA:'\u{11D1B}',THA:'\u{11D1C}',DA:'\u{11D1D}',DHA:'\u{11D1E}',NA:'\u{11D1F}',
+  PA:'\u{11D20}',PHA:'\u{11D21}',BA:'\u{11D22}',BHA:'\u{11D23}',MA:'\u{11D24}',
+  YA:'\u{11D25}',RA:'\u{11D26}',LA:'\u{11D27}',VA:'\u{11D28}',SHA:'\u{11D29}',
+  SSA:'\u{11D2A}',SA:'\u{11D2B}',HA:'\u{11D2C}',LLA:'\u{11D2D}',
+  KSSA:'\u{11D2E}',JNYA:'\u{11D2F}',TRA:'\u{11D30}',
+  // Dependent vowel signs (matras, 10)
+  VS_AA:'\u{11D31}',VS_I:'\u{11D32}',VS_II:'\u{11D33}',VS_U:'\u{11D34}',VS_UU:'\u{11D35}',
+  VS_R:'\u{11D36}',VS_E:'\u{11D3A}',VS_AI:'\u{11D3C}',VS_O:'\u{11D3D}',VS_AU:'\u{11D3F}',
+  // Various signs (8)
+  ANUSVARA:'\u{11D40}',VISARGA:'\u{11D41}',NUKTA:'\u{11D42}',CANDRA:'\u{11D43}',
+  HALANTA:'\u{11D44}',VIRAMA:'\u{11D45}',REPHA:'\u{11D46}',RAKARA:'\u{11D47}',
+  // Digits (10)
+  D0:'\u{11D50}',D1:'\u{11D51}',D2:'\u{11D52}',D3:'\u{11D53}',D4:'\u{11D54}',
+  D5:'\u{11D55}',D6:'\u{11D56}',D7:'\u{11D57}',D8:'\u{11D58}',D9:'\u{11D59}',
+  // Borrowed symbols
+  RUPEE:'\u{20B9}',SWASTIK:'\u{0FD5}',DHARMA:'\u{2638}',FLORETTE:'\u{2740}',
+  DELTA:'\u{0394}',PI:'\u{03C0}',CHECK:'\u{2713}',DEG:'\u{00B0}',MOD_APOS:'\u{02BC}'
+};
+
+const CONSONANTS = new Set([
+  CP.KA,CP.KHA,CP.GA,CP.GHA,CP.NGA,CP.CA,CP.CHA,CP.JA,CP.JHA,CP.NYA,
+  CP.TTA,CP.TTHA,CP.DDA,CP.DDHA,CP.NNA,CP.TA,CP.THA,CP.DA,CP.DHA,CP.NA,
+  CP.PA,CP.PHA,CP.BA,CP.BHA,CP.MA,CP.YA,CP.RA,CP.LA,CP.VA,CP.SHA,
+  CP.SSA,CP.SA,CP.HA,CP.LLA,CP.KSSA,CP.JNYA,CP.TRA
+]);
+
+const MATRAS = new Set([
+  CP.VS_AA,CP.VS_I,CP.VS_II,CP.VS_U,CP.VS_UU,CP.VS_R,CP.VS_E,CP.VS_AI,CP.VS_O,CP.VS_AU,CP.HALANTA
+]);
+
+/* ============ Application State ============ */
+const state = {
+  panel: 'letters',           // letters | numbers
+  kbMode: 'gondi',            // gondi | qwerty | hindi (3-way Globe cycle)
+  row1: 'vowel',              // vowel | matra
+  lastInput: null,            // last inserted char
+  lastCons: null,             // last consonant (for Vocalic-R combo)
+  vc: 'default',              // Vocalic-R key: default | combo
+  vcCons: null,               // consonant in combo
+  yukt: null,                 // null | {type:'lookahead',cons} | {type:'reph'}
+  cursorPos: null,            // null = end of text | number = character index
+  numPage: 1                  // QWERTY symbols pages: 1 (A), 2 (B), 3 (Calc)
+};
+let output = '';
+
+/* ============ DOM Refs ============ */
+const $ = id => document.getElementById(id);
+const outEl = $('out');
+const kbL = $('kbL'), kbN = $('kbN'), kbNQ = $('kbNQ'), kbQ = $('kbQ'), kbH = $('kbH');
+
+/* ============ Helpers ============ */
+function toast(msg){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+function codePoints(s){
+  return [...s].map(c => 'U+' + c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')).join(' ');
+}
+
+function getCursorIndex(){
+  const len = [...output].length;
+  if(state.cursorPos === null) return len;
+  return Math.max(0, Math.min(state.cursorPos, len));
+}
+
+function isCursorAtEnd(){
+  return state.cursorPos === null || state.cursorPos >= [...output].length;
+}
+
+/* Fallback copy helper for restricted permissions / iframe contexts */
+async function copyToClipboard(text){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch(e) { /* fallback below */ }
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch(err){
+    return false;
+  }
+}
+
+/* ============ Core Text & IME Engine ============ */
+function flushLookahead(nextChar){
+  const p = state.yukt;
+  if(!p) return false;
+  if(p.type === 'lookahead'){
+    if(nextChar === CP.RA){
+      output = [...output].slice(0,-1).join('') + p.cons + CP.RAKARA;
+      state.lastCons = p.cons; state.lastInput = p.cons;
+      state.row1 = 'matra';
+      state.yukt = null; return true;
+    } else if(CONSONANTS.has(nextChar)){
+      output = [...output].slice(0,-1).join('') + p.cons + CP.VIRAMA;
+      state.yukt = null; return false;
+    } else {
+      output = [...output].slice(0,-1).join('') + p.cons + CP.HALANTA;
+      state.yukt = null; return false;
+    }
+  } else { // reph — RA + Yukt + C
+    if(nextChar === CP.RA){
+      output = [...output].slice(0,-1).join('');
+      output += CP.REPHA + CP.RA;
+      state.lastCons = CP.RA; state.lastInput = CP.RA; state.row1 = 'matra';
+      state.yukt = null;
+      toast('RA + Yukt + RA: Repha + RA');
+      return true;
+    } else if(CONSONANTS.has(nextChar)){
+      output = [...output].slice(0,-1).join('');
+      output += CP.REPHA + nextChar;
+      state.lastCons = nextChar; state.lastInput = nextChar; state.row1 = 'matra';
+      state.vc = 'combo'; state.vcCons = nextChar;
+      state.yukt = null; return true;
+    } else {
+      output += CP.HALANTA;
+      state.yukt = null; return false;
+    }
+  }
+}
+
+function insertAtCursor(ch){
+  if(state.yukt) state.yukt = null;
+  const chars = [...output];
+  const idx = getCursorIndex();
+  chars.splice(idx, 0, ch);
+  output = chars.join('');
+  state.cursorPos = idx + 1;
+  state.lastInput = ch;
+  render();
+}
+
+function insertCharacter(ch){
+  if(!isCursorAtEnd()){ insertAtCursor(ch); return; }
+  const consumed = flushLookahead(ch);
+  if(!consumed){
+    output += ch;
+    state.lastInput = ch;
+    if(CONSONANTS.has(ch)){
+      state.lastCons = ch; state.row1 = 'matra';
+      state.vc = 'combo'; state.vcCons = ch;
+    } else if(MATRAS.has(ch)){
+      state.row1 = 'vowel';
+    } else if(ch === ' '){
+      state.row1 = 'vowel'; state.vc = 'default'; state.vcCons = null; state.lastCons = null;
+    } else {
+      state.row1 = 'vowel';
+    }
+  }
+  state.cursorPos = null;
+  render();
+}
+
+function backspace(){
+  const chars = [...output];
+  const idx = getCursorIndex();
+  if(idx >= chars.length){
+    if(state.yukt){ state.yukt = null; }
+    if(chars.length) chars.pop();
+    output = chars.join('');
+    state.cursorPos = null;
+  } else if(idx === 0){
+    render(); return;
+  } else {
+    if(state.yukt) state.yukt = null;
+    chars.splice(idx - 1, 1);
+    output = chars.join('');
+    state.cursorPos = idx - 1;
+  }
+  state.lastInput = chars.length ? chars[chars.length - 1] : null;
+  let lastCons = null;
+  for(let i = chars.length - 1; i >= 0; i--){
+    if(CONSONANTS.has(chars[i])){ lastCons = chars[i]; break; }
+  }
+  state.lastCons = lastCons;
+  state.row1 = (lastCons && chars.length && chars[chars.length - 1] === lastCons) ? 'matra' : 'vowel';
+  render();
+}
+
+function commitYuktAndSpace(withNewline){
+  const ch = withNewline ? '\n' : ' ';
+  if(!isCursorAtEnd()){ insertAtCursor(ch); return; }
+  if(state.yukt){
+    const p = state.yukt;
+    if(p.type === 'lookahead'){
+      output = [...output].slice(0,-1).join('') + p.cons + CP.HALANTA;
+    } else {
+      output += CP.HALANTA;
+    }
+    state.yukt = null;
+  }
+  output += ch;
+  state.row1 = 'vowel'; state.vc = 'default'; state.vcCons = null; state.lastCons = null;
+  state.lastInput = ch;
+  state.cursorPos = null;
+  render();
+}
+
+/* Key Handlers */
+function onConsonant(ch){ insertCharacter(ch); }
+function onVowel(ch){ insertCharacter(ch); }
+function onMatra(ch){ insertCharacter(ch); }
+function onVocalicRTap(){
+  if(!isCursorAtEnd()){ insertAtCursor(CP.VS_R); return; }
+  flushLookahead(CP.VS_R);
+  let text;
+  if(state.vc === 'combo' && state.vcCons){
+    const last = [...output].slice(-1)[0];
+    text = (last === state.vcCons) ? CP.VS_R : (state.vcCons + CP.VS_R);
+  } else {
+    text = CP.VS_R;
+  }
+  output += text;
+  state.row1 = 'vowel';
+  state.lastInput = text;
+  state.cursorPos = null;
+  render();
+}
+
+function onYukt(){
+  if(!isCursorAtEnd()) return;
+  if(state.yukt) return;
+  const lc = state.lastInput;
+  if(!lc || !CONSONANTS.has(lc)) return;
+  if(lc === CP.RA){ state.yukt = {type:'reph'}; }
+  else { state.yukt = {type:'lookahead', cons:lc}; }
+  render();
+}
+function onDelete(){ backspace(); }
+function onSpace(){ commitYuktAndSpace(false); }
+function onEnter(){ commitYuktAndSpace(true); }
+function onToggle(){
+  state.panel = (state.panel === 'letters') ? 'numbers' : 'letters';
+  if(state.panel === 'numbers') state.numPage = 1;
+  render();
+}
+
+/* Globe key: 3-way cycle */
+const KB_MODES = ['gondi', 'qwerty', 'hindi'];
+function onGlobeTap(){
+  const idx = KB_MODES.indexOf(state.kbMode);
+  state.kbMode = KB_MODES[(idx + 1) % KB_MODES.length];
+  state.panel = 'letters';
+  const name = state.kbMode === 'gondi' ? 'Masaram Gondi (native)' : state.kbMode === 'qwerty' ? 'English (QWERTY)' : 'Hindi → Gondi';
+  toast('🌐 ' + name);
+  render();
+}
+function onGlobeLongPress(){
+  toast('🌐 Keyboard switcher: Gondi ↔ English ↔ Hindi');
+}
+function onEmojiKey(){ openEmoji(); }
+
+/* ============ Long-Press Popup & Tactile Touch ============ */
+function showPop(b, glyph, label){
+  const pop = $('pop');
+  const r = b.getBoundingClientRect();
+  $('popGlyph').textContent = glyph;
+  $('popLabel').textContent = label || '';
+  const popWidth = 84;
+  const leftPos = Math.max(8, Math.min(window.innerWidth - popWidth - 8, r.left + r.width/2));
+  pop.style.left = leftPos + 'px';
+  pop.style.top = Math.max(10, r.top - 8) + 'px';
+  pop.style.display = 'block';
+}
+function hidePop(){ $('pop').style.display = 'none'; }
+
+function hapticTap(){
+  if('vibrate' in navigator){
+    try { navigator.vibrate(8); } catch(e){}
+  }
+}
+
+function attachKey(b, o){
+  let lpTimer = null, long = false;
+  const clearTimers = () => { if(lpTimer) clearTimeout(lpTimer); lpTimer = null; };
+  
+  b.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    long = false;
+    b.classList.add('pressed');
+    hapticTap();
+    if(o.lp){
+      lpTimer = setTimeout(() => {
+        long = true;
+        showPop(b, o.lp, o.lps || '');
+        if(o.lpAction) o.lpAction();
+      }, 300);
+    }
+  });
+
+  const up = e => {
+    b.classList.remove('pressed');
+    clearTimers();
+    hidePop();
+    if(long) return;
+    if(o.tap) o.tap();
+  };
+
+  b.addEventListener('pointerup', up);
+  b.addEventListener('pointercancel', up);
+  b.addEventListener('pointerleave', () => { if(!long){ clearTimers(); hidePop(); } });
+}
+
+/* ============ Spacebar Trackpad Drag-to-Move-Cursor ============ */
+const SPACE_DRAG_THRESHOLD = 6;
+const SPACE_PX_PER_CHAR = 16;
+function attachSpaceDrag(b){
+  let startX = null, startIdx = 0, dragging = false;
+  b.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    startX = e.clientX;
+    startIdx = getCursorIndex();
+    dragging = false;
+    b.classList.add('pressed');
+    if(b.setPointerCapture){ try{ b.setPointerCapture(e.pointerId); }catch(err){} }
+  });
+  b.addEventListener('pointermove', e => {
+    if(startX === null) return;
+    const dx = e.clientX - startX;
+    if(!dragging && Math.abs(dx) < SPACE_DRAG_THRESHOLD) return;
+    dragging = true;
+    if(state.yukt) state.yukt = null;
+    const len = [...output].length;
+    const charsMoved = Math.trunc(dx / SPACE_PX_PER_CHAR);
+    const newIdx = Math.max(0, Math.min(startIdx + charsMoved, len));
+    state.cursorPos = (newIdx >= len) ? null : newIdx;
+    renderOutbox();
+  });
+  const end = e => {
+    b.classList.remove('pressed');
+    if(!dragging) onSpace();
+    startX = null; dragging = false;
+  };
+  b.addEventListener('pointerup', end);
+  b.addEventListener('pointercancel', end);
+  b.addEventListener('pointerleave', e => {
+    if(startX === null) return;
+    const dx = e.clientX - startX;
+    if(Math.abs(dx) >= SPACE_DRAG_THRESHOLD) dragging = true;
+  });
+}
+
+/* ============ SVG Icons (Crisp & Responsive) ============ */
+const GLOBE_SVG = '<svg viewBox="0 0 24 24" width="19" height="19" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.93 6h-2.95c-.32-1.25-.78-2.45-1.38-3.56 1.84.63 3.37 1.91 4.33 3.56zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2s.06 1.34.14 2H4.26zm.82 2h2.95c.32 1.25.78 2.45 1.38 3.56-1.84-.63-3.37-1.91-4.33-3.56zm2.95-8H5.08c.96-1.65 2.49-2.93 4.33-3.56C8.81 5.55 8.35 6.75 8.03 8zM12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96zM14.34 14H9.66c-.09-.66-.16-1.32-.16-2s.07-1.35.16-2h4.68c.09.65.16 1.32.16 2s-.07 1.34-.16 2zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95c-.96 1.65-2.49 2.93-4.33 3.56zM16.36 14c.08-.66.14-1.32.14-2s-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2h-3.38z"/></svg>';
+const EMOJI_ICON_SVG = '<svg viewBox="0 0 24 24" width="17" height="17" fill="#fff"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>';
+const ENTER_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M19 7v4H5.83l3.58-3.59L8 6l-6 6 6 6 1.41-1.41L5.83 13H21V7z"/></svg>';
+const BACKSPACE_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3 12.59L17.59 17 14 13.41 10.41 17 9 15.59 12.59 12 9 8.41 10.41 7 14 10.59 17.59 7 19 8.41 15.41 12 19 15.59z"/></svg>';
+const SHIFT_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 4.5L5 13h4v6h6v-6h4L12 4.5z"/></svg>';
+const SPACE_ICON_SVG = '<svg viewBox="0 0 100 30" width="24" height="7" xmlns="http://www.w3.org/2000/svg"><path d="M10 4 L10 20 L90 20 L90 4" stroke="#fff" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+/* ============ Key Factory ============ */
+function makeKey(glyph, label, opts){
+  opts = opts || {};
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'key' + (opts.lp ? ' lp' : '') + (opts.cls ? ' ' + opts.cls : '');
+  const g = document.createElement('span');
+  g.className = 'glyph' + (opts.glyphCls ? ' ' + opts.glyphCls : '');
+  if(typeof glyph === 'string' && glyph.startsWith('<svg')) {
+    g.innerHTML = glyph;
+  } else {
+    g.textContent = glyph || '';
+  }
+  const l = document.createElement('span');
+  l.className = 'lbl' + (opts.lblCls ? ' ' + opts.lblCls : '');
+  l.textContent = label || '';
+  b.appendChild(g);
+  b.appendChild(l);
+  if(opts.tap || opts.lp) attachKey(b, opts);
+  return b;
+}
+
+function makeGlobeKey(){
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'key ctrl lp globeKey';
+  const g = document.createElement('span');
+  g.className = 'glyph';
+  g.innerHTML = GLOBE_SVG;
+  b.appendChild(g);
+  attachKey(b, {tap: onGlobeTap, lp: '⌨️', lps: 'Switch Keyboard', lpAction: onGlobeLongPress});
+  return b;
+}
+
+function makeEmojiKey(){
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'key ctrl lp emojiKey';
+  const g = document.createElement('span');
+  g.className = 'glyph';
+  g.innerHTML = EMOJI_ICON_SVG;
+  const l = document.createElement('span');
+  l.className = 'lbl';
+  l.textContent = ',';
+  b.appendChild(g);
+  b.appendChild(l);
+  attachKey(b, {tap: () => insertCharacter(','), lp: '😊', lps: 'Emoji', lpAction: onEmojiKey});
+  return b;
+}
+
+function makeEnterKey(){
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'key enter';
+  const g = document.createElement('span');
+  g.className = 'glyph';
+  g.innerHTML = ENTER_SVG;
+  b.appendChild(g);
+  attachKey(b, {tap: onEnter});
+  return b;
+}
+
+function makeBackspaceKey(opts){
+  opts = opts || {};
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'key danger' + (opts.cls ? ' ' + opts.cls : '');
+  const g = document.createElement('span');
+  g.className = 'glyph';
+  g.innerHTML = BACKSPACE_SVG;
+  b.appendChild(g);
+  attachKey(b, {tap: onDelete});
+  return b;
+}
+
+/* ============ Gondi Letters Panel (6 Rows) ============ */
+// 10 Independent Vowels
+const VOWEL_KEYS = [
+  {g:CP.A,s:'A'},{g:CP.AA,s:'AA'},{g:CP.I,s:'I'},{g:CP.II,s:'II'},{g:CP.U,s:'U'},
+  {g:CP.UU,s:'UU'},{g:CP.E,s:'E'},{g:CP.AI,s:'AI'},{g:CP.O,s:'O'},{g:CP.AU,s:'AU'}
+];
+// 10 Dependent Vowel Signs (Matras) — Exact 10 keys, no blank/empty button
+const MATRA_KEYS = [
+  {g:CP.VS_AA,s:'AA'},{g:CP.VS_I,s:'I'},{g:CP.VS_II,s:'II'},{g:CP.VS_U,s:'U'},{g:CP.VS_UU,s:'UU'},
+  {g:CP.VS_E,s:'E'},{g:CP.VS_AI,s:'AI'},{g:CP.VS_O,s:'O'},{g:CP.VS_AU,s:'AU'},{g:CP.VS_R,s:'R'}
+];
+const ROW2 = [
+  {g:CP.KA,s:'KA'},{g:CP.KHA,s:'KHA'},{g:CP.GA,s:'GA'},
+  {g:CP.GHA,s:'GHA',lp:CP.NGA,lps:'NGA'},
+  {g:CP.CA,s:'CA'},{g:CP.CHA,s:'CHA'},{g:CP.JA,s:'JA'},
+  {g:CP.JHA,s:'JHA',lp:CP.NYA,lps:'NYA'},
+  {g:CP.CANDRA,s:'Candra'},{g:CP.ANUSVARA,s:'Anusvara',lp:CP.VISARGA,lps:'Visarga'}
+];
+const ROW3 = [
+  {g:CP.TTA,s:'TTA'},{g:CP.TTHA,s:'TTHA'},{g:CP.DDA,s:'DDA'},{g:CP.DDHA,s:'DDHA'},
+  {g:CP.NNA,s:'NNA'},{g:CP.TA,s:'TA'},{g:CP.THA,s:'THA'},{g:CP.DA,s:'DA'},
+  {g:CP.DHA,s:'DHA'},{g:CP.NA,s:'NA'}
+];
+const ROW4 = [
+  {g:CP.PA,s:'PA'},{g:CP.PHA,s:'PHA'},{g:CP.BA,s:'BA'},{g:CP.BHA,s:'BHA'},
+  {g:CP.MA,s:'MA'},{g:CP.YA,s:'YA'},{g:CP.RA,s:'RA'},
+  {g:CP.LA,s:'LA',lp:CP.LLA,lps:'LLA'},
+  {g:CP.VA,s:'VA'},{g:CP.SHA,s:'SHA'}
+];
+const ROW5 = [
+  {g:CP.SSA,s:'SSA'},{g:CP.SA,s:'SA'},{g:CP.HA,s:'HA'},
+  {g:CP.KSSA,s:'KSSA'},{g:CP.JNYA,s:'JNYA'},{g:CP.TRA,s:'TRA'},
+  null, // dynamic Vocalic-R combo key (slot 7)
+  {g:CP.VISARGA,s:'Visarga'},
+  {g:CP.VIRAMA,s:'युक्त',cls:'special'},
+  {g:'⌫',s:'DEL',cls:'danger'}
+];
+
+function buildLettersPanel(){
+  kbL.innerHTML = '';
+  // Row 1 — dynamic (Vowels / Matras - exactly 10 buttons)
+  const row1 = document.createElement('div');
+  row1.className = 'row';
+  row1.id = 'row1';
+  kbL.appendChild(row1);
+
+  // Rows 2–5 static (10 keys per row)
+  [ROW2, ROW3, ROW4, ROW5].forEach(rowDef => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    rowDef.forEach(d => {
+      if(d === null){
+        const b = makeKey('', '', {cls:'vr', tap:onVocalicRTap});
+        b.id = 'vocalicRKey';
+        row.appendChild(b);
+        return;
+      }
+      if(d.s === 'DEL'){
+        row.appendChild(makeBackspaceKey());
+        return;
+      }
+      const isYukt = (d.s === 'युक्त');
+      row.appendChild(makeKey(d.g, '', {
+        cls: d.cls,
+        tap: isYukt ? onYukt : () => onConsonant(d.g),
+        lp: d.lp,
+        lps: d.lps,
+        lpAction: d.lp ? () => onConsonant(d.lp) : null
+      }));
+    });
+    kbL.appendChild(row);
+  });
+
+  // Row 6 — Control Row (Measured flex ratios matching English Row 4)
+  const row6 = document.createElement('div');
+  row6.className = 'row';
+
+  const toggleKey = makeKey('?𑵑𑵒𑵓', '', {cls:'toggle', glyphCls:'toggle-sm', tap:onToggle});
+  toggleKey.style.flex = '1.57';
+  row6.appendChild(toggleKey);
+
+  const emojiBtn = makeEmojiKey();
+  emojiBtn.style.flex = '1.0';
+  row6.appendChild(emojiBtn);
+
+  const globeBtn = makeGlobeKey();
+  globeBtn.style.flex = '1.0';
+  row6.appendChild(globeBtn);
+
+  const spaceBtn = makeKey('', '', {cls:'wide', lblCls:'spaceLbl'});
+  attachSpaceDrag(spaceBtn);
+  spaceBtn.style.flex = '4.4';
+  row6.appendChild(spaceBtn);
+
+  const periodBtn = makeKey('.', '.', {cls:'ctrl', tap: () => insertCharacter('.')});
+  periodBtn.style.flex = '1.0';
+  row6.appendChild(periodBtn);
+
+  const enterBtn = makeEnterKey();
+  enterBtn.style.flex = '1.58';
+  row6.appendChild(enterBtn);
+
+  kbL.appendChild(row6);
+}
+
+/* ============ Hindi Devanagari → Gondi Panel (6 Rows) ============ */
+// 10 Independent Devanagari Vowels
+const DEV_VOWEL_KEYS = [
+  {g:CP.A,s:'अ'},{g:CP.AA,s:'आ'},{g:CP.I,s:'इ'},{g:CP.II,s:'ई'},{g:CP.U,s:'उ'},
+  {g:CP.UU,s:'ऊ'},{g:CP.E,s:'ए'},{g:CP.AI,s:'ऐ'},{g:CP.O,s:'ओ'},{g:CP.AU,s:'औ'}
+];
+// 10 Dependent Devanagari Matras — Exact 10 keys, no blank/empty button
+const DEV_MATRA_KEYS = [
+  {g:CP.VS_AA,s:'ा'},{g:CP.VS_I,s:'ि'},{g:CP.VS_II,s:'ी'},{g:CP.VS_U,s:'ु'},{g:CP.VS_UU,s:'ू'},
+  {g:CP.VS_E,s:'े'},{g:CP.VS_AI,s:'ै'},{g:CP.VS_O,s:'ो'},{g:CP.VS_AU,s:'ौ'},{g:CP.VS_R,s:'ृ'}
+];
+const DEV_ROW2 = [
+  {g:CP.KA,s:'क',lp:CP.KA+CP.NUKTA,lps:'क़'},
+  {g:CP.KHA,s:'ख',lp:CP.KHA+CP.NUKTA,lps:'ख़'},
+  {g:CP.GA,s:'ग',lp:CP.GA+CP.NUKTA,lps:'ग़'},
+  {g:CP.GHA,s:'घ',lp:CP.NGA,lps:'ङ'},
+  {g:CP.CA,s:'च'},{g:CP.CHA,s:'छ'},
+  {g:CP.JA,s:'ज',lp:CP.JA+CP.NUKTA,lps:'ज़'},
+  {g:CP.JHA,s:'झ',lp:CP.NYA,lps:'ञ'},
+  {g:CP.CANDRA,s:'ँ'},{g:CP.ANUSVARA,s:'ं'}
+];
+const DEV_ROW3 = [
+  {g:CP.TTA,s:'ट'},{g:CP.TTHA,s:'ठ'},
+  {g:CP.DDA,s:'ड',lp:CP.DDA+CP.NUKTA,lps:'ड़'},
+  {g:CP.DDHA,s:'ढ',lp:CP.DDHA+CP.NUKTA,lps:'ढ़'},
+  {g:CP.NNA,s:'ण'},{g:CP.TA,s:'त'},{g:CP.THA,s:'थ'},{g:CP.DA,s:'द'},
+  {g:CP.DHA,s:'ध'},{g:CP.NA,s:'न'}
+];
+const DEV_ROW4 = [
+  {g:CP.PA,s:'प'},
+  {g:CP.PHA,s:'फ',lp:CP.PHA+CP.NUKTA,lps:'फ़'},
+  {g:CP.BA,s:'ब'},{g:CP.BHA,s:'भ'},{g:CP.MA,s:'म'},
+  {g:CP.YA,s:'य',lp:CP.YA+CP.NUKTA,lps:'य़'},
+  {g:CP.RA,s:'र'},
+  {g:CP.LA,s:'ल',lp:CP.LLA,lps:'ळ'},
+  {g:CP.VA,s:'व'},{g:CP.SHA,s:'श'}
+];
+const DEV_ROW5 = [
+  {g:CP.SSA,s:'ष'},{g:CP.SA,s:'स'},{g:CP.HA,s:'ह'},
+  {g:CP.KSSA,s:'क्ष'},{g:CP.JNYA,s:'ज्ञ'},{g:CP.TRA,s:'त्र'},
+  null, // dynamic Vocalic-R key (slot 7)
+  {g:CP.VISARGA,s:'ः'},
+  {g:CP.VIRAMA,s:'्',cls:'special'},
+  {g:'⌫',s:'DEL',cls:'danger'}
+];
+
+const GONDI_TO_DEV = {};
+[...DEV_ROW2, ...DEV_ROW3, ...DEV_ROW4, ...DEV_ROW5].forEach(d => { if(d && d.g) GONDI_TO_DEV[d.g] = d.s; });
+DEV_VOWEL_KEYS.forEach(d => { GONDI_TO_DEV[d.g] = d.s; });
+DEV_MATRA_KEYS.forEach(d => { GONDI_TO_DEV[d.g] = d.s; });
+const DEV_VS_R = 'ृ';
+
+function buildHindiPanel(){
+  kbH.innerHTML = '';
+  // Row 1 — dynamic (Devanagari Vowels / Matras - exactly 10 buttons)
+  const row1 = document.createElement('div');
+  row1.className = 'row';
+  row1.id = 'row1H';
+  kbH.appendChild(row1);
+
+  // Rows 2–5 static (10 keys per row)
+  [DEV_ROW2, DEV_ROW3, DEV_ROW4, DEV_ROW5].forEach(rowDef => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    rowDef.forEach(d => {
+      if(d === null){
+        const b = makeKey('', '', {cls:'vr', tap:onVocalicRTap});
+        b.id = 'vocalicRKeyH';
+        row.appendChild(b);
+        return;
+      }
+      if(d.s === 'DEL'){
+        row.appendChild(makeBackspaceKey());
+        return;
+      }
+      const isYukt = (d.g === CP.VIRAMA);
+      row.appendChild(makeKey(d.s, '', {
+        cls: d.cls,
+        tap: isYukt ? onYukt : () => onConsonant(d.g),
+        lp: d.lps,
+        lps: '',
+        lpAction: d.lp ? () => onConsonant(d.lp) : null
+      }));
+    });
+    kbH.appendChild(row);
+  });
+
+  // Row 6 — Control Row (Measured flex ratios matching English Row 4)
+  const row6 = document.createElement('div');
+  row6.className = 'row';
+
+  const toggleKey = makeKey('?123', '', {cls:'toggle', glyphCls:'toggle-latin', tap:onToggle});
+  toggleKey.style.flex = '1.57';
+  row6.appendChild(toggleKey);
+
+  const emojiBtn = makeEmojiKey();
+  emojiBtn.style.flex = '1.0';
+  row6.appendChild(emojiBtn);
+
+  const globeBtn = makeGlobeKey();
+  globeBtn.style.flex = '1.0';
+  row6.appendChild(globeBtn);
+
+  const spaceBtn = makeKey('', '', {cls:'wide', lblCls:'spaceLbl'});
+  attachSpaceDrag(spaceBtn);
+  spaceBtn.style.flex = '4.4';
+  row6.appendChild(spaceBtn);
+
+  const periodBtn = makeKey('.', '.', {cls:'ctrl', tap: () => insertCharacter('.')});
+  periodBtn.style.flex = '1.0';
+  row6.appendChild(periodBtn);
+
+  const enterBtn = makeEnterKey();
+  enterBtn.style.flex = '1.58';
+  row6.appendChild(enterBtn);
+
+  kbH.appendChild(row6);
+}
+
+/* ============ English (QWERTY) Panel (4 Rows) ============ */
+const QWERTY_ROWS = [
+  ['q','w','e','r','t','y','u','i','o','p'],
+  ['a','s','d','f','g','h','j','k','l'],
+  ['z','x','c','v','b','n','m']
+];
+
+let qwertyShiftMode = 'oneshot';
+let qwertyManualLock = null;
+let qwertyLastShiftTapTime = 0;
+
+function updateQwertyAutoCap(){
+  if(state.kbMode !== 'qwerty') return;
+  if(qwertyManualLock){
+    qwertyShiftMode = qwertyManualLock;
+  } else {
+    const chars = [...output];
+    let shouldCap;
+    if(chars.length === 0){
+      shouldCap = true;
+    } else {
+      const last = chars[chars.length - 1];
+      if(last === '\n'){
+        shouldCap = true;
+      } else if(last === ' '){
+        const prev = chars[chars.length - 2];
+        shouldCap = (prev === '.' || prev === '!' || prev === '?');
+      } else {
+        shouldCap = false;
+      }
+    }
+    qwertyShiftMode = shouldCap ? 'oneshot' : 'lower';
+  }
+  syncQwertyKeyCase();
+}
+
+function syncQwertyKeyCase(){
+  const isUpper = (qwertyShiftMode !== 'lower');
+  document.querySelectorAll('#kbQ .qwertyKey .glyph').forEach(el => {
+    el.textContent = isUpper ? el.textContent.toUpperCase() : el.textContent.toLowerCase();
+  });
+  const shiftBtn = $('qwertyShiftKey');
+  if(shiftBtn){
+    shiftBtn.classList.toggle('shift-oneshot', qwertyShiftMode === 'oneshot');
+    shiftBtn.classList.toggle('shift-caps', qwertyShiftMode === 'caps');
+  }
+}
+
+function onQwertyShift(){
+  const now = Date.now();
+  const isDoubleTap = (now - qwertyLastShiftTapTime) < 350;
+  qwertyLastShiftTapTime = now;
+  if(isDoubleTap){
+    qwertyManualLock = (qwertyShiftMode === 'caps') ? null : 'caps';
+  } else if(qwertyShiftMode === 'caps'){
+    qwertyManualLock = 'lower';
+  } else if(qwertyShiftMode === 'oneshot'){
+    qwertyManualLock = 'lower';
+  } else {
+    qwertyManualLock = 'oneshot';
+  }
+  updateQwertyAutoCap();
+}
+
+function onQwertyLetterTap(ch){
+  const cased = (qwertyShiftMode === 'lower') ? ch : ch.toUpperCase();
+  insertCharacter(cased);
+  if(qwertyManualLock !== 'caps') qwertyManualLock = null;
+}
+
+function buildQwertyPanel(){
+  kbQ.innerHTML = '';
+  QWERTY_ROWS.forEach((rowDef, ri) => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    if(ri === 1) row.classList.add('row-indent');
+    
+    if(ri === 2){
+      const shiftBtn = makeKey(SHIFT_SVG, '', {cls:'ctrl', tap:onQwertyShift});
+      shiftBtn.id = 'qwertyShiftKey';
+      shiftBtn.style.flex = '1.6';
+      row.appendChild(shiftBtn);
+    }
+    
+    rowDef.forEach(ch => {
+      const b = makeKey(ch, '', {tap: () => onQwertyLetterTap(ch)});
+      b.classList.add('qwertyKey');
+      row.appendChild(b);
+    });
+    
+    if(ri === 2){
+      const delBtn = makeBackspaceKey();
+      delBtn.style.flex = '1.6';
+      row.appendChild(delBtn);
+    }
+    
+    kbQ.appendChild(row);
+  });
+
+  // Row 4 (Control Row - Pixel-measured proportions)
+  const row4 = document.createElement('div');
+  row4.className = 'row';
+
+  const toggleKey = makeKey('?123', '', {cls:'toggle', glyphCls:'toggle-latin', tap:onToggle});
+  toggleKey.style.flex = '1.57';
+  row4.appendChild(toggleKey);
+
+  const emojiBtn = makeEmojiKey();
+  emojiBtn.style.flex = '1.0';
+  row4.appendChild(emojiBtn);
+
+  const globeBtn = makeGlobeKey();
+  globeBtn.style.flex = '1.0';
+  row4.appendChild(globeBtn);
+
+  const spaceBtn = makeKey('', '', {cls:'wide', lblCls:'spaceLbl'});
+  attachSpaceDrag(spaceBtn);
+  spaceBtn.style.flex = '4.4';
+  row4.appendChild(spaceBtn);
+
+  const periodBtn = makeKey('.', '.', {cls:'ctrl', tap: () => insertCharacter('.')});
+  periodBtn.style.flex = '1.0';
+  row4.appendChild(periodBtn);
+
+  const enterBtn = makeEnterKey();
+  enterBtn.style.flex = '1.58';
+  row4.appendChild(enterBtn);
+
+  kbQ.appendChild(row4);
+}
+
+/* ============ Numbers & Symbols Panel (Gondi / Hindi Mode - 6 Rows) ============ */
+const NUM_ROWS = [
+  [ {g:CP.D1,s:'1'},{g:CP.D2,s:'2'},{g:CP.D3,s:'3'},{g:CP.D4,s:'4'},{g:CP.D5,s:'5'},
+    {g:CP.D6,s:'6'},{g:CP.D7,s:'7'},{g:CP.D8,s:'8'},{g:CP.D9,s:'9'},{g:CP.D0,s:'0'} ],
+  [ {g:CP.RUPEE,s:'₹'},{g:CP.SWASTIK,s:'࿕'},{g:CP.DHARMA,s:'☸'},{g:CP.FLORETTE,s:'❀'},{g:'<',s:'<'},
+    {g:'>',s:'>'},{g:'&',s:'&'},{g:'=',s:'='},{g:';',s:';'},{g:':',s:':'} ],
+  [ {g:'@',s:'@'},{g:'#',s:'#'},{g:'(',s:'('},{g:')',s:')'},{g:'{',s:'{'},
+    {g:'}',s:'}'},{g:'[',s:'['},{g:']',s:']'},{g:'~',s:'~'},{g:'÷',s:'÷'} ],
+  [ {g:CP.MOD_APOS,s:'ʼ'},{g:"'",s:"'"},{g:',',s:','},{g:'-',s:'-'},{g:'/',s:'/'},
+    {g:'\\',s:'\\'},{g:'*',s:'*'},{g:'^',s:'^'},{g:'"',s:'"'},{g:'|',s:'|'} ],
+  [ {g:'!',s:'!'},{g:'+',s:'+'},{g:'_',s:'_'},{g:'$',s:'$'},{g:CP.DEG,s:'°'},
+    {g:CP.CHECK,s:'✓'},{g:CP.DELTA,s:'Δ'},{g:'¥',s:'¥'},{g:CP.PI,s:'π'},
+    {g:'⌫',s:'DEL',cls:'danger'} ]
+];
+
+function buildNumbersPanel(){
+  kbN.innerHTML = '';
+  NUM_ROWS.forEach((rowDef, ri) => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    const isDigitRow = (ri === 0);
+    rowDef.forEach(d => {
+      if(d.s === 'DEL'){
+        row.appendChild(makeBackspaceKey());
+        return;
+      }
+      row.appendChild(makeKey(d.g, isDigitRow ? d.s : '', {
+        tap: () => insertCharacter(d.g)
+      }));
+    });
+    kbN.appendChild(row);
+  });
+
+  // Row 6 — Control Row
+  const row6 = document.createElement('div');
+  row6.className = 'row';
+
+  const toggleKey = makeKey('ABC', '', {cls:'toggle', glyphCls:'toggle-latin', tap:onToggle});
+  toggleKey.style.flex = '1.57';
+  row6.appendChild(toggleKey);
+
+  const commaBtn = makeKey(',', ',', {cls:'ctrl', tap: () => insertCharacter(',')});
+  commaBtn.style.flex = '1.0';
+  row6.appendChild(commaBtn);
+
+  const globeBtn = makeGlobeKey();
+  globeBtn.style.flex = '1.0';
+  row6.appendChild(globeBtn);
+
+  const spaceBtn = makeKey('', '', {cls:'wide', lblCls:'spaceLbl'});
+  attachSpaceDrag(spaceBtn);
+  spaceBtn.style.flex = '4.4';
+  row6.appendChild(spaceBtn);
+
+  const periodBtn = makeKey('.', '.', {cls:'ctrl', tap: () => insertCharacter('.')});
+  periodBtn.style.flex = '1.0';
+  row6.appendChild(periodBtn);
+
+  const enterBtn = makeEnterKey();
+  enterBtn.style.flex = '1.58';
+  row6.appendChild(enterBtn);
+
+  kbN.appendChild(row6);
+}
+
+/* ============ QWERTY Numbers & Symbols Panel (kbNQ - 3 Pages) ============ */
+const NUMQ_PAGE1 = {
+  rows: [
+    [ {g:'1'},{g:'2'},{g:'3'},{g:'4'},{g:'5'},{g:'6'},{g:'7'},{g:'8'},{g:'9'},{g:'0'} ],
+    [ {g:'@'},{g:'#'},{g:'₹'},{g:'_'},{g:'&'},{g:'-'},{g:'+'},{g:'('},{g:')'},{g:'/'} ],
+    [ {g:'=\\<',link:2,cls:'ctrl',wide:true},{g:'*'},{g:'"'},{g:"'"},{g:':'},{g:';'},{g:'!'},{g:'?'},
+      {g:'⌫',cls:'danger',del:true,wide:true} ]
+  ],
+  bottom: { mid:',', link:{label:'12\n34', to:3} }
+};
+
+const NUMQ_PAGE2 = {
+  rows: [
+    [ {g:'~'},{g:'`'},{g:'|'},{g:'•'},{g:'√'},{g:'π'},{g:'÷'},{g:'×'},{g:'§'},{g:'∆'} ],
+    [ {g:'€'},{g:'¥'},{g:'$'},{g:'¢'},{g:'^'},{g:'°'},{g:'='},{g:'{'},{g:'}'},{g:'\\'} ],
+    [ {g:'?123',link:1,cls:'ctrl',wide:true},{g:'%'},{g:'©'},{g:'®'},{g:'™'},{g:'✓'},{g:'['},{g:']'},
+      {g:'⌫',cls:'danger',del:true,wide:true} ]
+  ],
+  bottom: { mid:'<', link:{label:'12\n34', to:3} }
+};
+
+function buildSymbolsPage(page){
+  kbNQ.innerHTML = '';
+  page.rows.forEach(rowDef => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    rowDef.forEach(d => {
+      if(d.del){
+        const b = makeBackspaceKey();
+        if(d.wide) b.style.flex = '1.58';
+        row.appendChild(b);
+        return;
+      }
+      const b = makeKey(d.g, '', {
+        cls: d.cls,
+        tap: d.link ? (() => switchNumQPage(d.link)) : (() => insertCharacter(d.g))
+      });
+      if(d.wide) b.style.flex = '1.58';
+      row.appendChild(b);
+    });
+    kbNQ.appendChild(row);
+  });
+
+  const row4 = document.createElement('div');
+  row4.className = 'row';
+
+  const toggleKey = makeKey('ABC', '', {cls:'toggle', glyphCls:'toggle-latin', tap:onToggle});
+  toggleKey.style.flex = '1.57';
+  row4.appendChild(toggleKey);
+
+  const midBtn = makeKey(page.bottom.mid, '', {cls:'ctrl', tap: () => insertCharacter(page.bottom.mid)});
+  midBtn.style.flex = '1.0';
+  row4.appendChild(midBtn);
+
+  const linkBtn = makeKey(page.bottom.link.label, '', {cls:'toggle numpage-link', tap: () => switchNumQPage(page.bottom.link.to)});
+  linkBtn.style.flex = '1.0';
+  row4.appendChild(linkBtn);
+
+  const spaceBtn = makeKey('', '', {cls:'wide', lblCls:'spaceLbl'});
+  attachSpaceDrag(spaceBtn);
+  spaceBtn.style.flex = '4.4';
+  row4.appendChild(spaceBtn);
+
+  const periodBtn = makeKey('.', '', {cls:'ctrl', tap: () => insertCharacter('.')});
+  periodBtn.style.flex = '1.0';
+  row4.appendChild(periodBtn);
+
+  const enterBtn = makeEnterKey();
+  enterBtn.style.flex = '1.58';
+  row4.appendChild(enterBtn);
+
+  kbNQ.appendChild(row4);
+}
+
+const CALC_OPS = ['+','-','*','/','(',')',','];
+function makeSplitCell(items){
+  const cell = document.createElement('div');
+  cell.className = 'calc-split';
+  items.forEach(it => {
+    const b = makeKey(it.g, '', it.opts || {});
+    b.style.flex = it.ratio;
+    cell.appendChild(b);
+  });
+  return cell;
+}
+
+function makeCalcSpaceKey(){
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'key';
+  const g = document.createElement('span');
+  g.className = 'glyph';
+  g.innerHTML = SPACE_ICON_SVG;
+  b.appendChild(g);
+  attachSpaceDrag(b);
+  return b;
+}
+
+function buildCalcPage(){
+  kbNQ.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'calc-grid-wrap';
+
+  const ops = document.createElement('div');
+  ops.className = 'calc-ops';
+  CALC_OPS.forEach(ch => ops.appendChild(makeKey(ch, '', {tap: () => insertCharacter(ch)})));
+  wrap.appendChild(ops);
+
+  [ ['1','2','3','%'], ['4','5','6','SPACE'], ['7','8','9','DEL'] ].forEach(row => {
+    row.forEach(ch => {
+      if(ch === 'DEL'){ wrap.appendChild(makeBackspaceKey()); return; }
+      if(ch === 'SPACE'){ wrap.appendChild(makeCalcSpaceKey()); return; }
+      wrap.appendChild(makeKey(ch, '', {tap: () => insertCharacter(ch)}));
+    });
+  });
+
+  const toggleKey = makeKey('ABC', '', {cls:'toggle', glyphCls:'toggle-latin', tap:onToggle});
+  wrap.appendChild(toggleKey);
+
+  wrap.appendChild(makeSplitCell([
+    {g:',', ratio:0.93, opts:{cls:'ctrl', tap:()=>insertCharacter(',')}},
+    {g:'!?#', ratio:1.28, opts:{cls:'toggle', tap:()=>switchNumQPage(1)}}
+  ]));
+
+  wrap.appendChild(makeKey('0', '', {tap:()=>insertCharacter('0')}));
+
+  wrap.appendChild(makeSplitCell([
+    {g:'=', ratio:1.28, opts:{cls:'ctrl', tap:()=>insertCharacter('=')}},
+    {g:'.', ratio:0.93, opts:{cls:'ctrl', tap:()=>insertCharacter('.')}}
+  ]));
+
+  wrap.appendChild(makeEnterKey());
+  kbNQ.appendChild(wrap);
+}
+
+function switchNumQPage(n){
+  state.numPage = n;
+  buildNumQPanel();
+}
+
+function buildNumQPanel(){
+  if(state.numPage === 1) buildSymbolsPage(NUMQ_PAGE1);
+  else if(state.numPage === 2) buildSymbolsPage(NUMQ_PAGE2);
+  else buildCalcPage();
+}
+
+/* ============ Dynamic Row 1 (Vowel / Matra State Switch) ============ */
+function renderRow1(){
+  const row1 = $('row1');
+  if(!row1) return;
+  row1.innerHTML = '';
+  const defs = (state.row1 === 'matra') ? MATRA_KEYS : VOWEL_KEYS;
+  defs.forEach(d => {
+    const b = makeKey(d.g, '', {tap: () => onMatra(d.g)});
+    row1.appendChild(b);
+  });
+}
+
+function renderVocalicR(){
+  const k = $('vocalicRKey');
+  if(!k) return;
+  const g = k.querySelector('.glyph'), l = k.querySelector('.lbl');
+  const text = (state.vc === 'combo' && state.vcCons) ? (state.vcCons + CP.VS_R) : CP.VS_R;
+  if(g) g.textContent = text;
+  if(l) l.textContent = '';
+  k.title = (state.vc === 'combo' && state.vcCons) ? 'Vocalic-R Combo' : 'Vocalic-R';
+}
+
+function renderRow1H(){
+  const row1 = $('row1H');
+  if(!row1) return;
+  row1.innerHTML = '';
+  const defs = (state.row1 === 'matra') ? DEV_MATRA_KEYS : DEV_VOWEL_KEYS;
+  defs.forEach(d => {
+    const b = makeKey(d.s, '', {tap: () => onMatra(d.g)});
+    row1.appendChild(b);
+  });
+}
+
+function renderVocalicRH(){
+  const k = $('vocalicRKeyH');
+  if(!k) return;
+  const g = k.querySelector('.glyph'), l = k.querySelector('.lbl');
+  const text = (state.vc === 'combo' && state.vcCons) ? ((GONDI_TO_DEV[state.vcCons] || '') + DEV_VS_R) : DEV_VS_R;
+  if(g) g.textContent = text;
+  if(l) l.textContent = '';
+  k.title = (state.vc === 'combo' && state.vcCons) ? 'Vocalic-R Combo' : 'Vocalic-R';
+}
+
+/* ============ Info / About Modal ============ */
+function openInfo(){ $('infoOverlay').classList.add('open'); }
+function closeInfo(){ $('infoOverlay').classList.remove('open'); }
+$('infoBtn').addEventListener('click', openInfo);
+$('infoClose').addEventListener('click', closeInfo);
+$('infoOverlay').addEventListener('click', e => { if(e.target.id === 'infoOverlay') closeInfo(); });
+
+/* ============ Emoji Picker Modal ============ */
+const EMOJI = {
+  '😀 Smileys': ['😀','😁','😂','🤣','😃','😄','😅','😆','😉','😊','😋','😎','😍','🥰','😘','😗','😜','🤪','🤩','😇','🙂','🤗','🤔','🫡','😴','😢','😭','😤','😠','😡','🥺','😱','🤯','😳','😬','🤠'],
+  '👋 Gestures': ['👍','👎','👌','🤌','🤝','🙏','✌️','🤞','🤟','🤘','✊','👊','🤛','🤜','👏','🙌','👐','🤲','💪','🫶','👋','🤙','🖐️','✋','🤚','👆','👇','👈','👉'],
+  '❤️ Hearts': ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💕','💞','💓','💗','💖','💘','💝','💟','❣️','💔','❤️🔥','❤️🩹'],
+  '🌿 Nature': ['🌸','🌹','🌺','🌻','🌼','🌷','🌱','🌲','🌳','🌴','🍀','🌿','☘️','🍄','🌵','🐝','🐞','🦋','🐢','🐘','🦁','🐯','🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🦆','🦅','🦉','🌙','⭐','☀️','🌈','⚡','❄️','🌊','🌋'],
+  '🍎 Food': ['🍎','🍌','🍇','🍉','🍊','🍋','🍓','🍒','🥭','🍍','🥥','🥑','🍆','🥔','🥕','🍞','🧀','🍕','🍔','🍟','🌭','🍿','🥨','🍩','🍪','🎂','🍰','🧁','🍫','🍬','☕','🍵','🥛','🧃','🍺','🍷','🥂'],
+  '⚽ Activity': ['⚽','🏀','🏈','⚾','🎾','🏐','🏓','🏸','🏏','🥊','🥋','⛳','🎣','🏊','🚴','⛹️','🤸','🎯','🎮','🎲','🎳','🏆','🏅','🥇','🥈','🥉','🎪','🎭','🎨','🎤','🎹','🎷','🎺'],
+  '🚗 Travel': ['🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚚','🚛','🏍️','🚲','🛴','🚂','✈️','🚀','🛸','🚁','⛵','🚢','🗺️','🏠','🏢','🏰','🗽','🌉','🌆','🎡','🎢','🏖️','🏔️'],
+  '💡 Objects': ['💡','🔦','🕯️','🔥','📱','💻','⌚','🎧','📷','🎥','📺','📻','📚','📖','📝','✏️','💰','💎','🎁','🎀','📦','🔑','🔒','🔓','🧲','⚙️','🔧','🧰','🧹','🪣'],
+  '💬 Symbols': ['❗','❓','⭕','✅','❌','💯','✨','💫','🎉','🎊','🙈','🙉','🙊','💬','💭','🚫','🛑','⚠️','🎵','🎶','♠️','♥️','♦️','♣️','🕉️','☮️','✡️','☪️','🕎','☦️','🔯']
+};
+
+const EMOJI_FLAT = [];
+for(const cat in EMOJI) EMOJI[cat].forEach(e => EMOJI_FLAT.push({e, cat}));
+let emojiTab = Object.keys(EMOJI)[0];
+
+function openEmoji(){
+  $('emojiOverlay').classList.add('open');
+  $('emojiSearch').value = '';
+  renderEmojiTabs();
+  renderEmojiGrid();
+  setTimeout(() => $('emojiSearch').focus(), 40);
+}
+function closeEmoji(){ $('emojiOverlay').classList.remove('open'); }
+
+function renderEmojiTabs(){
+  const t = $('emojiTabs');
+  t.innerHTML = '';
+  Object.keys(EMOJI).forEach(cat => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'tab' + (cat === emojiTab ? ' on' : '');
+    b.textContent = cat;
+    b.addEventListener('click', () => {
+      emojiTab = cat;
+      renderEmojiTabs();
+      renderEmojiGrid();
+    });
+    t.appendChild(b);
+  });
+}
+
+function renderEmojiGrid(){
+  const g = $('emojiGrid');
+  g.innerHTML = '';
+  const q = $('emojiSearch').value.trim().toLowerCase();
+  const items = q
+    ? EMOJI_FLAT.filter(x => x.e.toLowerCase().includes(q) || x.cat.toLowerCase().includes(q))
+    : EMOJI[emojiTab].map(e => ({e, cat: emojiTab}));
+  if(!items.length){
+    const d = document.createElement('div');
+    d.textContent = 'कोई emoji नहीं मिला';
+    d.style.cssText = 'color:var(--dim);font-size:13px;grid-column:1/-1;text-align:center;padding:20px;';
+    g.appendChild(d);
+    return;
+  }
+  items.forEach(x => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = x.e;
+    b.addEventListener('click', () => {
+      insertCharacter(x.e);
+      hapticTap();
+    });
+    g.appendChild(b);
+  });
+}
+
+$('emojiSearch').addEventListener('input', renderEmojiGrid);
+$('emojiClose').addEventListener('click', closeEmoji);
+$('emojiOverlay').addEventListener('click', e => { if(e.target.id === 'emojiOverlay') closeEmoji(); });
+document.addEventListener('keydown', e => { 
+  if(e.key === 'Escape') {
+    closeEmoji(); 
+    closeInspector();
+    closeInfo();
+  }
+});
+
+/* ============ Unicode Inspector Overlay ============ */
+function openInspector(){
+  $('inspectText').textContent = output.length ? output : '(खाली)';
+  $('inspectCps').textContent = output.length ? codePoints(output) : '—';
+  $('inspectOverlay').classList.add('open');
+}
+function closeInspector(){ $('inspectOverlay').classList.remove('open'); }
+$('inspectBtn').addEventListener('click', openInspector);
+$('inspectClose').addEventListener('click', closeInspector);
+$('inspectOverlay').addEventListener('click', e => { if(e.target.id === 'inspectOverlay') closeInspector(); });
+
+$('inspectCopy').addEventListener('click', async () => {
+  const text = $('inspectCps').textContent;
+  const ok = await copyToClipboard(text);
+  toast(ok ? '📋 Copy हो गया' : '⚠️ Copy fail — manually select करें');
+});
+
+$('inspectDownload').addEventListener('click', () => {
+  const content = 'Text: ' + output + '\n\nCodepoints:\n' + codePoints(output);
+  const blob = new Blob([content], {type: 'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mgboard-unicode-' + Date.now() + '.txt';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('⬇️ Download हो गया');
+});
+
+$('inspectShare').addEventListener('click', async () => {
+  const text = 'Text: ' + output + '\n\nCodepoints:\n' + codePoints(output);
+  if(navigator.share){
+    try {
+      await navigator.share({text, title: 'Mgboard Unicode'});
+      return;
+    } catch(e){}
+  }
+  const ok = await copyToClipboard(text);
+  toast(ok ? '📤 Clipboard में copy कर दिया' : '⚠️ Share aur Copy fail');
+});
+
+/* ============ Toolbar Actions ============ */
+$('copyBtn').addEventListener('click', async () => {
+  if(!output.length){ toast('⚠️ कुछ भी typed नहीं है'); return; }
+  const ok = await copyToClipboard(output);
+  toast(ok ? '📋 Text copy हो गया' : '⚠️ Copy fail');
+});
+
+$('downloadBtn').addEventListener('click', () => {
+  if(!output.length){ toast('⚠️ कुछ भी typed नहीं है'); return; }
+  const blob = new Blob([output], {type: 'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mgboard-text-' + Date.now() + '.txt';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('⬇️ File download हो गई');
+});
+
+$('shareBtn').addEventListener('click', async () => {
+  if(!output.length){ toast('⚠️ कुछ भी typed नहीं है'); return; }
+  if(navigator.share){
+    try {
+      await navigator.share({text: output, title: 'Mgboard'});
+      return;
+    } catch(e){}
+  }
+  const ok = await copyToClipboard(output);
+  toast(ok ? '📤 Clipboard में copy कर दिया' : '⚠️ Share fail');
+});
+
+/* ============ Outbox & Keyboard Render ============ */
+function renderOutbox(){
+  outEl.innerHTML = '';
+  const chars = [...output];
+  const idx = getCursorIndex();
+  const before = chars.slice(0, idx).join('');
+  const after = chars.slice(idx).join('');
+  
+  if(before) outEl.appendChild(document.createTextNode(before));
+  
+  const caret = document.createElement('span');
+  caret.className = 'caret';
+  caret.id = 'caret';
+  outEl.appendChild(caret);
+  
+  if(after) outEl.appendChild(document.createTextNode(after));
+  
+  requestAnimationFrame(() => {
+    if(idx >= chars.length){
+      outEl.parentElement.scrollTop = outEl.parentElement.scrollHeight;
+    } else {
+      caret.scrollIntoView({block: 'nearest', inline: 'nearest'});
+    }
+  });
+}
+
+function render(){
+  renderOutbox();
+
+  // Switch keyboard panels visibility
+  kbL.style.display  = (state.kbMode === 'gondi'  && state.panel === 'letters') ? '' : 'none';
+  kbN.style.display  = ((state.kbMode === 'gondi' || state.kbMode === 'hindi') && state.panel === 'numbers') ? '' : 'none';
+  kbNQ.style.display = (state.kbMode === 'qwerty' && state.panel === 'numbers') ? '' : 'none';
+  kbQ.style.display  = (state.kbMode === 'qwerty' && state.panel === 'letters') ? '' : 'none';
+  kbH.style.display  = (state.kbMode === 'hindi'  && state.panel === 'letters') ? '' : 'none';
+
+  // Spacebar label according to active mode
+  const spaceLabel = (state.kbMode === 'hindi') ? 'हिंदी' : (state.kbMode === 'qwerty') ? 'English' : '𑴎𑴽𑵀𑴘𑴳';
+  document.querySelectorAll('.spaceLbl').forEach(el => {
+    el.textContent = spaceLabel;
+    el.style.fontFamily = (state.kbMode === 'gondi') ? "'Mgondi','Noto Sans Masaram Gondi',sans-serif" :
+                          (state.kbMode === 'hindi') ? "'Noto Sans Devanagari',sans-serif" : '';
+    el.style.fontSize = (state.kbMode === 'gondi') ? '14px' : '13px';
+  });
+
+  renderRow1();
+  renderVocalicR();
+  renderRow1H();
+  renderVocalicRH();
+  updateQwertyAutoCap();
+}
+
+/* ============ Initialization ============ */
+buildLettersPanel();
+buildNumbersPanel();
+buildNumQPanel();
+buildQwertyPanel();
+buildHindiPanel();
+
+$('clearBtn').addEventListener('click', () => {
+  output = '';
+  state.yukt = null;
+  state.row1 = 'vowel';
+  state.vc = 'default';
+  state.vcCons = null;
+  state.lastCons = null;
+  state.lastInput = null;
+  state.cursorPos = null;
+  render();
+  toast('↺ Cleared');
+});
+
+render();
+</script>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a35cf454ff9216ed',t:'MTc4ODUyNDQ5MQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
