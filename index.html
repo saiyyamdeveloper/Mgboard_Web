@@ -756,15 +756,18 @@ h1 {
 
 /* Standard Phones (361px - 480px) */
 @media (min-width: 361px) and (max-width: 480px) {
-  :root {
-    --key-h: 44px;
-    --key-font: 18px;
-    --row-gap: 4px;
+  /* [FIX] Sirf Gondi (#kbL), Hindi (#kbH) aur unka shared symbol/number
+     panel (#kbN) chota — English (#kbQ) aur English symbol-panel (#kbNQ)
+     :root ki original values (44px/18px/4px) hi use karte rahenge, kyunki
+     unhe scoped override nahi mila. */
+  #kbL, #kbH, #kbN {
+    --key-h: 36px;
+    --key-font: 15px;
+    --row-gap: 2px;
     --row-pad: 2px 3px;
     --kb-pad: 5px 4px 5px;
   }
 }
-
 /* Large Phones / Phablets (481px - 767px) */
 @media (min-width: 481px) {
   :root {
