@@ -9,7 +9,7 @@
 ## 🌟 Live Demo & Hosting
 
 When hosted on GitHub Pages under the repository `Mgboard_Web`:
-👉 [Mgboard Web](https://saiyyamdeveloper.github.io/Mgboard_Web/)
+👉 ⌨️[Mgboard Web](https://saiyyamdeveloper.github.io/Mgboard_Web/)
 
 ## ⌨️ Key Features & Capabilities
 
@@ -64,10 +64,9 @@ When hosted on GitHub Pages under the repository `Mgboard_Web`:
 
 ## 🔗 Related Projects by Saiyyam Ji
 
-- 📱 [Mgboard (Android App)](https://github.com/saiyyamdeveloper/Mgboard) — Privacy-first Android keyboard with bundled Noto Sans Masaram Gondi font.
-- 🔄 [Hindi-Masaram-Gondi-Script-Converter](https://github.com/saiyyamdeveloper/Hindi-Masaram-Gondi-Script-Converter) — Script converter, 75-key keyboard & FlorisBoard layouts.
+- 🔄 [Hindi-Masaram-Gondi-Script-Converter](https://github.com/saiyyamdeveloper/Hindi-Masaram-Gondi-Script-Converter) — Script converter, 75-key keyboard.
 - 📖 [MasaramGondiLipi-dictionary](https://github.com/saiyyamdeveloper/MasaramGondiLipi-dictionary) — Gondi language and script dictionary.
- 📱 [Mgboard Web](https://saiyyamdeveloper.github.io/Mgboard_Web/) 
+- 📱 [Mgboard Web](https://saiyyamdeveloper.github.io/Mgboard_Web/) 
 ---
 
 **|| सेवा जोहार ||**
