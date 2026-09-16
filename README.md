@@ -70,3 +70,13 @@ When hosted on GitHub Pages under the repository `Mgboard_Web`:
 ---
 
 **|| सेवा जोहार ||**
+
+---
+
+## 🎤 Update v16.3 (16 September 2026)
+
+- **Voice typing add hua!** 🎙️ — Mic dabao, Hindi bolo, turant **Masaram Gondi lipi** me likha jayega
+- Unicode 17.0 rules: REPHA, RA-KARA, KSSA/JNYA/TRA, HALANTA/VIRAMA
+- Nukta fix: ड़/ढ़/क़/ख़/ग़/ज़/फ़/य़ ab base + 𑵂 (U+11D42), NFC-normalized input
+- Backspace **hold-to-repeat** delete (400ms baad, har 70ms)
+- **Live site:** https://saiyyamdeveloper.github.io/Mgboard_Web/
