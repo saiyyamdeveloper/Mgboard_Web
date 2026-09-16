@@ -1907,6 +1907,8 @@ h1 {
     font-size: 13px;
   }
 }
+/* Keyboard and assistive-technology focus must remain visible. */
+button:focus-visible { outline: 3px solid #66cfff; outline-offset: 2px; }
 </style>
 </head>
 <body>
@@ -2113,6 +2115,10 @@ h1 {
     <div class="info-content">
       <p>🌿 <strong>Mgboard_Web</strong> मासाराम गोंडी लिपि (Masaram Gondi Script) के संरक्षण व डिजिटलीकरण के लिए बनाया गया वेब कीबोर्ड है।</p>
       
+      <h2>🔒 गोपनीयता / Privacy</h2>
+      <p>टाइपिंग और लिपि-रूपांतरण इस पेज में होते हैं। Voice typing में ब्राउज़र आवाज़ को बाहरी speech service पर भेज सकता है; यह केवल-device सुविधा नहीं है। Hindi और Gondi मोड में हिंदी बोलें, परिणाम गोंडी लिपि में आएगा।</p>
+      <p>Clipboard इतिहास चालू करने पर टेक्स्ट इस ब्राउज़र के localStorage में बिना encryption सहेजा जाता है। अनुमति मिलने पर पेज पर लौटने और Clipboard पैनल खुले रहने के दौरान बाहरी Clipboard भी पढ़ा जा सकता है। Pin किए गए clips मिटाने तक रहते हैं। बाकी clips एक घंटे बाद ऐप चलने पर होने वाली सफाई में हटते हैं; ऐप बंद होने पर सफाई नहीं चलती। Settings → Clipboard history → Clear से इतिहास मिटाएँ।</p>
+      <p>Storage उपलब्ध न हो तो सेटिंग और इतिहास केवल इस सत्र की memory में रहेंगे। लिखे हुए मुख्य टेक्स्ट को पेज बंद करने से पहले Copy या Save करें।</p>
       <h2 style="margin-top:10px;">🌟 डेवलपर प्रोजेक्ट्स (Developer Repositories)</h2>
       <div class="repo-card">
         <a href="https://github.com/saiyyamdeveloper/Mgboard" target="_blank" rel="noopener">📱 Mgboard (Android Keyboard)</a>
@@ -2270,6 +2276,24 @@ h1 {
 
 <script>
 'use strict';
+// Preferences/history are optional: blocked or full storage must not stop typing.
+const storageMemory = new Map();
+const storageOverrides = new Set();
+function storageGet(key){
+  if(storageOverrides.has(key)) return storageMemory.get(key) ?? null;
+  try {
+    const value = window.localStorage.getItem(key);
+    if(value === null) storageMemory.delete(key); else storageMemory.set(key, value);
+    return value;
+  } catch(e){ return storageMemory.get(key) ?? null; }
+}
+function storageSet(key, value){
+  value = String(value);
+  storageMemory.set(key, value);
+  try { window.localStorage.setItem(key, value); storageOverrides.delete(key); }
+  catch(e){ storageOverrides.add(key); }
+}
+
 /* ================================================================
    Unicode constants — Masaram Gondi (Unicode 10.0+ / v17.0 chart verified)
    ================================================================ */
@@ -2320,7 +2344,7 @@ const state = {
   lastCons: null,             // last consonant (for Vocalic-R combo)
   vc: 'default',              // Vocalic-R key: default | combo
   vcCons: null,               // consonant in combo
-  yukt: null,                 // null | {type:'lookahead',cons} | {type:'reph'}
+  yukt: null,                 // pending composition: {type, cons, start, end}
   cursorPos: null,            // null = end of text | number = character index
   selAnchor: null,            // [NEW] null = no selection | number = anchor index (Text editing panel)
   numPage: 1                  // QWERTY symbols pages: 1 (A), 2 (B), 3 (Calc)
@@ -2343,6 +2367,7 @@ function undoSnapshot(){
   return {
     output,
     cursorPos: state.cursorPos,
+    selAnchor: state.selAnchor,
     // [FIX] Sirf output/cursorPos kaafi nahi hai — Gondi ki combining logic
     // (yukt/matra-row/vocalic-R combo) inhi fields par depend karti hai. Agar
     // ye restore na karein to undo ke baad text to sahi dikhega, par agla
@@ -2359,6 +2384,7 @@ function undoSnapshot(){
 function undoRestore(snap){
   output = snap.output;
   state.cursorPos = snap.cursorPos;
+  state.selAnchor = snap.selAnchor ?? null;
   state.yukt = snap.yukt ? {...snap.yukt} : null;
   state.row1 = snap.row1;
   state.vc = snap.vc;
@@ -2507,82 +2533,93 @@ function getSelRange(){
 /* Fallback copy helper for restricted permissions / iframe contexts */
 async function copyToClipboard(text){
   if(navigator.clipboard && navigator.clipboard.writeText){
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch(e) { /* fallback below */ }
+    try { await navigator.clipboard.writeText(text); return true; } catch(e){}
   }
+  let ta;
+  const previousFocus = document.activeElement;
   try {
-    const ta = document.createElement('textarea');
+    ta = document.createElement('textarea');
     ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    ta.style.left = '-9999px';
+    ta.style.cssText = 'position:fixed;opacity:0;left:-9999px';
     document.body.appendChild(ta);
     ta.focus();
     ta.select();
-    const ok = document.execCommand('copy');
-    document.body.removeChild(ta);
-    return ok;
-  } catch(err){
-    return false;
+    return document.execCommand('copy');
+  } catch(e){ return false; }
+  finally {
+    if(ta) ta.remove();
+    if(previousFocus && previousFocus.isConnected) previousFocus.focus({preventScroll:true});
   }
 }
 
-/* ============ Core Text & IME Engine ============ */
+/* ============ Cursor-aware Text & IME Engine ============ */
+function isConsonantSequence(text){
+  const chars = [...text];
+  return CONSONANTS.has(chars[0]) &&
+    (chars.length === 1 || (chars.length === 2 && chars[1] === CP.NUKTA));
+}
+
+function consonantBeforeCursor(allowRakara = false){
+  const chars = [...output];
+  const end = getCursorIndex();
+  let i = end - 1;
+  if(allowRakara && chars[i] === CP.RAKARA) i--;
+  if(chars[i] === CP.NUKTA) i--;
+  if(!CONSONANTS.has(chars[i])) return null;
+  return {start:i, end, text:chars.slice(i, end).join(''), base:chars[i]};
+}
+
+// Never infer composition from the last key pressed: paste/cut/cursor moves
+// can make that stale. Only the text immediately before the caret is authoritative.
+function syncImeContext(){
+  state.yukt = null;
+  const chars = [...output], idx = getCursorIndex();
+  const cons = consonantBeforeCursor(true);
+  state.lastInput = chars[idx - 1] || null;
+  state.lastCons = cons ? cons.base : null;
+  state.row1 = cons ? 'matra' : 'vowel';
+  state.vc = cons ? 'combo' : 'default';
+  state.vcCons = cons ? cons.text : null;
+}
+
+// Shared codepoint-safe mutation; slice/concat avoids spread argument limits
+// when pasting large documents. All callers checkpoint before mutation.
+function replaceTextRange(start, end, text){
+  const chars = [...output], inserted = [...text];
+  const next = chars.slice(0, start).concat(inserted, chars.slice(end));
+  output = next.join('');
+  const idx = start + inserted.length;
+  state.cursorPos = idx >= next.length ? null : idx;
+  state.selAnchor = null;
+  syncImeContext();
+}
+
 function flushLookahead(nextChar){
-  const p = state.yukt;
-  if(!p) return false;
-  if(p.type === 'lookahead'){
-    if(nextChar === CP.RA){
-      output = [...output].slice(0,-1).join('') + p.cons + CP.RAKARA;
-      state.lastCons = p.cons; state.lastInput = p.cons;
-      state.row1 = 'matra';
-      state.yukt = null; return true;
-    } else if(CONSONANTS.has(nextChar)){
-      output = [...output].slice(0,-1).join('') + p.cons + CP.VIRAMA;
-      state.yukt = null; return false;
-    } else {
-      output = [...output].slice(0,-1).join('') + p.cons + CP.HALANTA;
-      state.yukt = null; return false;
-    }
-  } else { // reph — RA + Yukt + C
-    if(nextChar === CP.RA){
-      output = [...output].slice(0,-1).join('');
-      output += CP.REPHA + CP.RA;
-      state.lastCons = CP.RA; state.lastInput = CP.RA; state.row1 = 'matra';
-      state.yukt = null;
-      toast('RA + Yukt + RA: Repha + RA');
-      return true;
-    } else if(CONSONANTS.has(nextChar)){
-      output = [...output].slice(0,-1).join('');
-      output += CP.REPHA + nextChar;
-      state.lastCons = nextChar; state.lastInput = nextChar; state.row1 = 'matra';
-      state.vc = 'combo'; state.vcCons = nextChar;
-      state.yukt = null; return true;
-    } else {
-      output += CP.HALANTA;
-      state.yukt = null; return false;
-    }
+  const pending = state.yukt;
+  if(!pending) return false;
+  state.yukt = null;
+  const chars = [...output];
+  if(getSelRange() || getCursorIndex() !== pending.end ||
+     chars.slice(pending.start, pending.end).join('') !== pending.cons) return false;
+  let replacement;
+  if(isConsonantSequence(nextChar)){
+    if(pending.type === 'reph') replacement = CP.REPHA + nextChar;
+    else if(nextChar === CP.RA) replacement = pending.cons + CP.RAKARA;
+    else replacement = pending.cons + CP.VIRAMA + nextChar;
+  } else {
+    replacement = pending.cons + CP.HALANTA + nextChar;
   }
+  replaceTextRange(pending.start, pending.end, replacement);
+  return true;
 }
 
 function insertTextBulk(str){
-  // [NEW] Voice-typing jaisi multi-character (poore phrase) insertion ke liye
-  // — insertCharacter/insertAtCursor Gondi consonant+matra lookahead logic
-  // se tightly juda hai (ek-ek character ke liye), jo English/Hindi voice
-  // text ke liye zaroori nahi. Ye seedha poora string cursor par daal deta hai.
   if(!str) return;
-  recordUndoCheckpoint('insert');
-  if(state.yukt) state.yukt = null;
-  const chars = [...output];
-  const idx = getCursorIndex();
-  const ins = [...str];
-  chars.splice(idx, 0, ...ins);
-  output = chars.join('');
-  state.cursorPos = idx + ins.length;
-  state.lastInput = ins[ins.length - 1] || '';
-  state.row1 = 'vowel'; state.vc = 'default'; state.vcCons = null; state.lastCons = null;
+  closeUndoGroup();
+  recordUndoCheckpoint('bulk');
+  const range = getSelRange() || [getCursorIndex(), getCursorIndex()];
+  replaceTextRange(range[0], range[1], str);
+  closeUndoGroup();
   render();
 }
 
@@ -2606,6 +2643,7 @@ let _micListening = false;
 // bina reliably kaam karta hai.
 let _micActive = false;
 let _micAutoCloseTimer = null;
+let micPrivacyAccepted = false;
 function micGetLang(){
   // [UPDATED] User-confirmed: Gondi panel mein ab Hindi (hi-IN) recognition
   // use hoti hai — kyunki Gondi ka apna speech-engine exist nahi karta, aur
@@ -2651,16 +2689,17 @@ function micStop(){
 // chahiye jo turant UI clean kar de.
 function micForceStop(){
   clearTimeout(_micAutoCloseTimer);
-  if(_micRecognition){
-    try { _micRecognition.onend = null; _micRecognition.onresult = null; _micRecognition.stop(); } catch(e){}
-    _micRecognition = null;
+  const recognition = _micRecognition;
+  _micRecognition = null; // invalidate old callbacks before aborting
+  if(recognition){
+    recognition.onstart = recognition.onresult = recognition.onerror = recognition.onend = null;
+    try { recognition.abort(); } catch(e){ try { recognition.stop(); } catch(err){} }
   }
-  _micListening = false;
-  _micActive = false; // [FIX] Force-stop ke baad bhi flag reset karna zaroori
-  const btn = $('micFixedBtn');
-  if(btn) btn.classList.remove('listening');
-  if($('toolbarVoiceContent').style.display !== 'none') hideVoiceToolbar();
+  micSetListening(false);
+  _micActive = false;
+  hideVoiceToolbar();
 }
+
 /* [FIX] Purana openVoicePanel/closeVoicePanel (poora keyboard hide karne
    wala) hata diya. Real Gboard screenshots confirm karte hain ki keyboard
    KEYS visible hi rehti hain — sirf toolbar-row ke andar #toolbarNormalContent
@@ -2680,65 +2719,69 @@ function hideVoiceToolbar(){
   $('toolbarNormalContent').style.display = 'flex';
 }
 function micStart(){
-  if(_micActive) return; // [FIX] Double-start guard — agar already ek session chal/starting hai
+  if(_micActive) return;
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!SR){ toast('⚠️ Voice typing is device/browser mein available nahi hai'); return; }
-  if(!navigator.onLine){ toast('⚠️ Voice typing ke liye internet chahiye'); return; }
-  _micActive = true; // [FIX] Turant (synchronously) set — onstart ke aane se pehle hi
-                       // taaki beech ka tap "stop" ki taraf hi route ho, "start" nahi.
-  showVoiceToolbar(); // [FIX] Gboard jaisa — sirf toolbar-row badalta hai, keyboard nahi
-  _micRecognition = new SR();
-  _micRecognition.lang = micGetLang();
-  _micRecognition.interimResults = false;
-  _micRecognition.maxAlternatives = 1;
-  _micRecognition.continuous = false;
-  _micRecognition.onstart = () => micSetListening(true);
-  _micRecognition.onresult = (e) => {
+  if(!SR){ toast('⚠️ Voice typing इस ब्राउज़र में उपलब्ध नहीं है'); return; }
+  if(!navigator.onLine){ toast('⚠️ Voice typing के लिए इंटरनेट चाहिए'); return; }
+  if(!micPrivacyAccepted){
+    if(!confirm('Voice typing में आपका ब्राउज़र आवाज़ को बाहरी speech service पर भेज सकता है। यह केवल-device सुविधा नहीं है। जारी रखें?')) return;
+    micPrivacyAccepted = true; // this tab/session only
+  }
+  let recognition;
+  try { recognition = new SR(); }
+  catch(e){ toast('⚠️ Voice typing शुरू नहीं हो पाई'); return; }
+  const mode = state.kbMode;
+  _micRecognition = recognition;
+  _micActive = true;
+  showVoiceToolbar();
+  recognition.lang = micGetLang();
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  recognition.continuous = false;
+  const current = () => _micRecognition === recognition;
+  recognition.onstart = () => { if(current()) micSetListening(true); };
+  recognition.onresult = e => {
+    if(!current()) return;
     let transcript = e.results?.[0]?.[0]?.transcript;
     if(transcript && transcript.trim()){
       transcript = transcript.trim();
-      // [NEW] Gondi panel par bola gaya Hindi (Devanagari) transcript
-      // seedha Masaram Gondi script mein convert karke insert karte hain.
-      if(state.kbMode === 'gondi') transcript = convertDevanagariToGondi(transcript);
+      // Hindi-labelled keys and dictation both output Masaram Gondi.
+      if(mode === 'gondi' || mode === 'hindi') transcript = convertDevanagariToGondi(transcript);
       insertTextBulk(transcript + ' ');
-      const status = $('vStatus');
-      if(status) status.textContent = micStatusAdded();
+      $('vStatus').textContent = micStatusAdded();
     }
   };
-  _micRecognition.onerror = (e) => {
+  recognition.onerror = e => {
+    if(!current()) return;
     const msgs = {
-      'not-allowed': '⚠️ Mic permission nahi mili',
-      'no-speech': '⚠️ Kuch suna nahi gaya, dobara try karein',
-      'audio-capture': '⚠️ Mic nahi mila',
-      'network': '⚠️ Network error — internet check karein',
+      'not-allowed':'⚠️ Mic permission नहीं मिली',
+      'no-speech':'⚠️ कुछ सुनाई नहीं दिया, दोबारा प्रयास करें',
+      'audio-capture':'⚠️ Mic नहीं मिला',
+      'network':'⚠️ Network error — इंटरनेट जाँचें'
     };
-    const msg = msgs[e.error] || ('⚠️ Voice error: ' + e.error);
-    toast(msg);
-    const status = $('vStatus');
-    if(status) status.textContent = msg;
-    const circle = $('vMicCircle');
-    if(circle){ circle.classList.remove('listening'); circle.classList.add('err'); }
-    _micActive = false; // [FIX] Error par bhi session end — turant reset, warna next tap phir stuck
+    micForceStop();
+    toast(msgs[e.error] || ('⚠️ Voice error: ' + e.error));
   };
-  _micRecognition.onend = () => {
-    micSetListening(false);
-    _micActive = false; // [FIX] Session poori tarah khatam — ab naya tap "start" ki taraf jaayega
-    // [NEW] Real Gboard jaisa — result/silence ke baad toolbar khud-ba-khud
-    // normal state mein wapas aa jaata hai (thoda delay taaki status
-    // text/✓ dikh jaaye).
-    _micAutoCloseTimer = setTimeout(() => {
-      if($('toolbarVoiceContent').style.display !== 'none') hideVoiceToolbar();
-    }, 450);
+  recognition.onend = () => {
+    if(!current()) return;
+    _micRecognition = null;
+    _micActive = _micListening = false;
+    $('micFixedBtn').classList.remove('listening');
+    $('vMicCircle').classList.remove('listening');
+    clearTimeout(_micAutoCloseTimer);
+    _micAutoCloseTimer = setTimeout(() => { if(!_micActive) hideVoiceToolbar(); }, 450);
   };
-  try { _micRecognition.start(); } catch(e){ _micActive = false; toast('⚠️ Voice typing start nahi ho payi'); hideVoiceToolbar(); }
+  try { recognition.start(); }
+  catch(e){ micForceStop(); toast('⚠️ Voice typing शुरू नहीं हो पाई'); }
 }
+
 // [FIX] Purana fixed #micBtn listener hata diya — click ab renderPinnedRow()
 // ke andar dynamically handle hota hai (mic ab normal pinnable slot hai).
 // [NEW] Voice-toolbar ke apne controls — back-arrow cancel karta hai,
 // chevron abhi ke liye minimize/cancel dono jaisa (back se same behavior;
 // asli Gboard mein iska exact purpose collapse-hint hai).
-$('vBackBtn').addEventListener('click', () => { micStop(); hideVoiceToolbar(); });
-$('vChevronBtn').addEventListener('click', () => { micStop(); hideVoiceToolbar(); });
+$('vBackBtn').addEventListener('click', () => { micForceStop(); });
+$('vChevronBtn').addEventListener('click', () => { micForceStop(); });
 $('vMicCircle').addEventListener('click', () => { if(_micActive) micStop(); else micStart(); });
 // [NEW] Fixed right-anchored toolbar mic button (Gboard-jaisa permanent slot).
 $('micFixedBtn').addEventListener('click', () => { if(_micActive) micStop(); else micStart(); });
@@ -2747,141 +2790,49 @@ $('micFixedBtn').addEventListener('click', () => { if(_micActive) micStop(); els
 // attachPinnedDrag() ke paas defined hai, par function-hoisting ki wajah se
 // yahan call karna safe hai.
 attachMicPinnedDrag($('micFixedBtn'));
-function insertAtCursor(ch){
-  recordUndoCheckpoint('insert');
-  if(state.yukt) state.yukt = null;
-  const chars = [...output];
-  const idx = getCursorIndex();
-  chars.splice(idx, 0, ch);
-  output = chars.join('');
-  state.cursorPos = idx + 1;
-  state.lastInput = ch;
-  // [FIX] Pehle sirf text insert hota tha — row1/vc/vcCons/lastCons update
-  // nahi hote the, isliye beech-text me consonant type karne ke baad
-  // "matra row" khulta hi nahi tha (aur matra sahi se jud nahi paati thi,
-  // kyunki tab user ko majburan independent vowel row se select karna
-  // padta tha). insertCharacter() (end-of-text wala) jaisa hi logic yaha
-  // bhi laga diya, taaki dono jagah consistent behave ho.
-  if(CONSONANTS.has(ch)){
-    state.lastCons = ch; state.row1 = 'matra';
-    state.vc = 'combo'; state.vcCons = ch;
-  } else if(MATRAS.has(ch)){
-    state.row1 = 'vowel';
-  } else if(ch === ' '){
-    state.row1 = 'vowel'; state.vc = 'default'; state.vcCons = null; state.lastCons = null;
-  } else {
-    state.row1 = 'vowel';
-  }
-  render();
-}
+function insertAtCursor(ch){ insertCharacter(ch); }
 
-function insertCharacter(ch){
-  if(!isCursorAtEnd()){ insertAtCursor(ch); return; }
-  recordUndoCheckpoint('insert');
-  const consumed = flushLookahead(ch);
-  if(!consumed){
-    output += ch;
-    state.lastInput = ch;
-    if(CONSONANTS.has(ch)){
-      state.lastCons = ch; state.row1 = 'matra';
-      state.vc = 'combo'; state.vcCons = ch;
-    } else if(MATRAS.has(ch)){
-      state.row1 = 'vowel';
-    } else if(ch === ' '){
-      state.row1 = 'vowel'; state.vc = 'default'; state.vcCons = null; state.lastCons = null;
-    } else {
-      state.row1 = 'vowel';
-    }
+function insertCharacter(ch, actionType = 'insert'){
+  if(!ch) return;
+  recordUndoCheckpoint(actionType);
+  if(!flushLookahead(ch)){
+    const range = getSelRange() || [getCursorIndex(), getCursorIndex()];
+    replaceTextRange(range[0], range[1], ch);
   }
-  state.cursorPos = null;
   render();
 }
 
 function backspace(){
-  const chars = [...output];
-  const idx = getCursorIndex();
-  if((idx === 0 && idx < chars.length) || chars.length === 0){
-    render(); return; // kuch delete nahi hoga — checkpoint mat lo
-  }
+  const range = getSelRange(), idx = getCursorIndex();
+  if(!range && idx === 0){ syncImeContext(); render(); return; }
   recordUndoCheckpoint('delete');
-  if(idx >= chars.length){
-    if(state.yukt){ state.yukt = null; }
-    if(chars.length) chars.pop();
-    output = chars.join('');
-    state.cursorPos = null;
-  } else if(idx === 0){
-    render(); return;
-  } else {
-    if(state.yukt) state.yukt = null;
-    chars.splice(idx - 1, 1);
-    output = chars.join('');
-    state.cursorPos = idx - 1;
-  }
-  state.lastInput = chars.length ? chars[chars.length - 1] : null;
-  let lastCons = null;
-  for(let i = chars.length - 1; i >= 0; i--){
-    if(CONSONANTS.has(chars[i])){ lastCons = chars[i]; break; }
-  }
-  state.lastCons = lastCons;
-  state.row1 = (lastCons && chars.length && chars[chars.length - 1] === lastCons) ? 'matra' : 'vowel';
+  replaceTextRange(range ? range[0] : idx - 1, range ? range[1] : idx, '');
   render();
 }
 
 function commitYuktAndSpace(withNewline){
-  const ch = withNewline ? '\n' : ' ';
-  if(!isCursorAtEnd()){ insertAtCursor(ch); return; }
-  // Space/Enter apne aap me ek alag, akela undo-group hai — pichle type kiye
-  // hue word se bhi alag, aage type hone wale word se bhi alag.
   closeUndoGroup();
-  recordUndoCheckpoint('boundary');
+  insertCharacter(withNewline ? '\n' : ' ', 'boundary');
   closeUndoGroup();
-  if(state.yukt){
-    const p = state.yukt;
-    if(p.type === 'lookahead'){
-      output = [...output].slice(0,-1).join('') + p.cons + CP.HALANTA;
-    } else {
-      output += CP.HALANTA;
-    }
-    state.yukt = null;
-  }
-  output += ch;
-  state.row1 = 'vowel'; state.vc = 'default'; state.vcCons = null; state.lastCons = null;
-  state.lastInput = ch;
-  state.cursorPos = null;
-  render();
 }
 
 /* Key Handlers */
 function onConsonant(ch){ insertCharacter(ch); }
 function onVowel(ch){ insertCharacter(ch); }
 function onMatra(ch){ insertCharacter(ch); }
-function onVocalicRTap(){
-  if(!isCursorAtEnd()){ insertAtCursor(CP.VS_R); return; }
-  recordUndoCheckpoint('insert');
-  flushLookahead(CP.VS_R);
-  let text;
-  if(state.vc === 'combo' && state.vcCons){
-    const last = [...output].slice(-1)[0];
-    text = (last === state.vcCons) ? CP.VS_R : (state.vcCons + CP.VS_R);
-  } else {
-    text = CP.VS_R;
-  }
-  output += text;
-  state.row1 = 'vowel';
-  state.lastInput = text;
-  state.cursorPos = null;
+function onVocalicRTap(){ insertCharacter(CP.VS_R); }
+
+function onYukt(){
+  if(state.yukt || getSelRange()) return;
+  const cons = consonantBeforeCursor();
+  if(!cons || !isConsonantSequence(cons.text)) return;
+  state.yukt = {
+    type: cons.text === CP.RA ? 'reph' : 'lookahead',
+    cons:cons.text, start:cons.start, end:cons.end
+  };
   render();
 }
 
-function onYukt(){
-  if(!isCursorAtEnd()) return;
-  if(state.yukt) return;
-  const lc = state.lastInput;
-  if(!lc || !CONSONANTS.has(lc)) return;
-  if(lc === CP.RA){ state.yukt = {type:'reph'}; }
-  else { state.yukt = {type:'lookahead', cons:lc}; }
-  render();
-}
 function onDelete(){ backspace(); }
 function onSpace(){ commitYuktAndSpace(false); }
 function onEnter(){ commitYuktAndSpace(true); }
@@ -2969,245 +2920,157 @@ function hapticTap(){
   }
 }
 
+// One active gesture per key; mouse/pen use Pointer Events, touch uses Touch
+// Events exclusively. Native keyboard/assistive click is a separate fallback.
+const activeKeyGestures = new Set();
+function cancelKeyGestures(){ for(const cancel of [...activeKeyGestures]) cancel(); }
+window.addEventListener('blur', cancelKeyGestures);
+document.addEventListener('visibilitychange', () => { if(document.hidden) cancelKeyGestures(); });
+
 function attachKey(b, o){
-  let lpTimer = null, long = false;
-  let multiPopEl = null, multiSelectedChar = null;
-  let usingTouch = false; // is drag-select touchmove/touchend se track ho raha hai
-  // [FIX] Row2 (Dot key ke bilkul paas) sirf hold karne se hi accidentally
-  // select ho jaata tha, chhote se natural finger-jitter se bhi — jabki Row1
-  // (door hone ki wajah se) sirf deliberate drag se hi select hota tha.
-  // Fix: ek "deadzone" — jab tak finger apni shuru ki position se kam se
-  // kam DEADZONE_PX door na jaaye, koi bhi symbol (Row1 ya Row2, dono) select
-  // nahi hoga — dono rows ab equally deliberate-drag maangte hain.
+  let gesture = null, holdTimer = null, repeatTimer = null;
+  let long = false, repeating = false, multi = null, selected = null;
   const DEADZONE_PX = 14;
-  let startX = null, startY = null;
-  const clearTimers = () => { if(lpTimer) clearTimeout(lpTimer); lpTimer = null; };
-  // [NEW v16.2] Hold-to-repeat (Backspace) — Gboard jaisa: key pakde rakho,
-  // lagatar delete hota rahega. Pehle 400ms ka delay (taki chhota-tap galti
-  // se repeat na ban jaaye), phir har 70ms mein ek delete. touchConsumed
-  // guard: touch-flow ke baad aane wala synthetic pointerup double-delete na kare.
-  let repTimer = null, repInterval = null, repeating = false, touchConsumed = false;
-  const REPEAT_DELAY = 400, REPEAT_INTERVAL = 70;
-  const clearRepeat = () => { if(repTimer){ clearTimeout(repTimer); repTimer = null; } if(repInterval){ clearInterval(repInterval); repInterval = null; } };
-  const startRepeat = () => {
-    if(!o.repeat) return;
-    clearRepeat();
-    repTimer = setTimeout(() => {
-      repTimer = null;
-      repeating = true;
-      if(o.tap) o.tap();
-      repInterval = setInterval(() => { if(o.tap) o.tap(); }, REPEAT_INTERVAL);
-    }, REPEAT_DELAY);
-  };
-
-  const hitTest = (clientX, clientY) => {
-    if(!multiPopEl || !multiPopEl.__itemRects) return null;
-    if(startX !== null){
-      const dx = clientX - startX, dy = clientY - startY;
-      if((dx*dx + dy*dy) < DEADZONE_PX*DEADZONE_PX){
-        // abhi tak deadzone ke andar hai — sab items ko unselect rakho
-        multiPopEl.__itemRects.forEach(({el}) => el.classList.remove('active'));
-        return null;
-      }
-    }
-    let found = null;
-    multiPopEl.__itemRects.forEach(({el, rect}) => {
-      const hit = clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+  b.style.touchAction = 'none';
+  const choose = (x, y) => {
+    if(!multi || !multi.__itemRects || !gesture) return;
+    const moved = Math.hypot(x - gesture.x, y - gesture.y) >= DEADZONE_PX;
+    selected = null;
+    multi.__itemRects.forEach(({el, rect}) => {
+      const hit = moved && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
       el.classList.toggle('active', hit);
-      if(hit) found = el;
-    });
-    return found ? found.textContent : null;
-  };
-
-  let rafId = null, lastMoveEvent = null;
-  const onMultiMovePointer = e => {
-    lastMoveEvent = e;
-    if(rafId) return;
-    rafId = requestAnimationFrame(() => {
-      rafId = null;
-      if(!lastMoveEvent) return;
-      multiSelectedChar = hitTest(lastMoveEvent.clientX, lastMoveEvent.clientY);
+      if(hit) selected = el.textContent;
     });
   };
-  // [FIX] Real phone par Pointer Events + setPointerCapture se drag-select
-  // reliably kaam nahi karta tha. Touch Events (touchmove/touchend) is
-  // exact use-case (long-press + drag + release) ke liye zyada bharosemand
-  // hain — ye har production keyboard (Gboard included) isi tarah karte hain.
-  const onMultiMoveTouch = e => {
-    if(!e.touches || !e.touches.length) return;
-    e.preventDefault();
-    const t = e.touches[0];
-    if(rafId) return;
-    rafId = requestAnimationFrame(() => {
-      rafId = null;
-      multiSelectedChar = hitTest(t.clientX, t.clientY);
-    });
+  const cleanup = () => {
+    clearTimeout(holdTimer); clearInterval(repeatTimer);
+    holdTimer = repeatTimer = null;
+    gesture = null;
+    b.classList.remove('pressed');
+    if(multi) hideMultiPop();
+    hidePop();
+    multi = null; selected = null; long = repeating = false;
+    activeKeyGestures.delete(cancel);
   };
-
-  const finishMultiSelect = () => {
-    document.removeEventListener('pointermove', onMultiMovePointer);
-    document.removeEventListener('touchmove', onMultiMoveTouch);
-    if(rafId){ cancelAnimationFrame(rafId); rafId = null; }
-    hideMultiPop();
-    multiPopEl = null;
-    startX = startY = null;
-    if(multiSelectedChar){ insertCharacter(multiSelectedChar); multiSelectedChar = null; }
+  const cancel = () => { cleanup(); };
+  const begin = (source, id, x, y) => {
+    if(gesture || b.disabled) return;
+    gesture = {source, id, x, y};
+    long = repeating = false; selected = null;
+    activeKeyGestures.add(cancel);
+    b.classList.add('pressed');
+    hapticTap();
+    if(o.repeat){
+      holdTimer = setTimeout(() => {
+        repeating = true;
+        if(o.tap) o.tap();
+        repeatTimer = setInterval(() => { if(o.tap) o.tap(); }, 70);
+      }, 400);
+    } else if(o.lpMulti || o.lp){
+      holdTimer = setTimeout(() => {
+        long = true;
+        if(o.lpMulti) multi = showMultiPop(b, o.lpMulti);
+        else showPop(b, o.lp, o.lps || '');
+        // Commit alternates only on release, never after a cancelled gesture.
+      }, 300);
+    }
+  };
+  const finish = (x, y) => {
+    if(!gesture) return;
+    choose(x, y);
+    const choice = selected, held = long, wasMulti = !!multi, repeated = repeating;
+    cleanup(); // cleanup before render can detach/rebuild the key
+    if(repeated) return;
+    if(wasMulti){ if(choice) insertCharacter(choice); else if(o.tap) o.tap(); }
+    else if(held){ if(o.lpAction) o.lpAction(); }
     else if(o.tap) o.tap();
   };
-
   b.addEventListener('touchstart', e => {
-    if(!o.lpMulti && !o.lp){
-      // [NEW v16.2] repeat-keys (Backspace) — touch flow: hold = lagatar delete
-      if(o.repeat){
-        usingTouch = true;
-        long = false;
-        repeating = false;
-        touchConsumed = false;
-        e.preventDefault();
-        b.classList.add('pressed');
-        hapticTap();
-        startRepeat();
-      }
-      return; // baaki normal keys purani pointer-based flow hi use karte hain
-    }
-    usingTouch = true;
-    long = false;
-    multiSelectedChar = null;
-    const t0 = e.touches[0];
-    startX = t0.clientX; startY = t0.clientY;
-    b.classList.add('pressed');
-    hapticTap();
-    if(o.lpMulti){
-      e.preventDefault();
-      lpTimer = setTimeout(() => {
-        long = true;
-        multiPopEl = showMultiPop(b, o.lpMulti);
-        document.addEventListener('touchmove', onMultiMoveTouch, {passive:false});
-      }, 300);
-    } else {
-      // [FIX] Single-glyph long-press keys (Emoji, Globe, consonant-reph) —
-      // pehle sirf mouse/pointer par kaam karta tha; real touch (phone) par
-      // lpTimer kabhi start hi nahi hota tha isliye long-press (jaise Emoji
-      // panel khulna) fire nahi hota tha. Ab touchstart khud isse handle
-      // karta hai, lpMulti wale flow ki tarah hi — isliye short-tap
-      // (touchend) bhi bilkul waisa hi kaam karta rahega jaisa pehle karta tha.
-      lpTimer = setTimeout(() => {
-        long = true;
-        showPop(b, o.lp, o.lps || '');
-        if(o.lpAction) o.lpAction();
-      }, 300);
-    }
+    if(gesture || !e.changedTouches.length) return;
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    begin('touch', t.identifier, t.clientX, t.clientY);
   }, {passive:false});
-
+  b.addEventListener('touchmove', e => {
+    if(!gesture || gesture.source !== 'touch') return;
+    e.preventDefault();
+    const t = [...e.changedTouches].find(t => t.identifier === gesture.id);
+    if(t) choose(t.clientX, t.clientY);
+  }, {passive:false});
   b.addEventListener('touchend', e => {
-    if(!usingTouch) return;
-    e.preventDefault();
-    usingTouch = false;
-    b.classList.remove('pressed');
-    clearTimers();
-    clearRepeat(); // [NEW v16.2] hold-delete band karo
-    if(multiPopEl){ finishMultiSelect(); return; }
-    hidePop();
-    if(long) return;
-    if(repeating){ repeating = false; touchConsumed = true; return; } // [NEW v16.2] repeat chal chuka — extra tap nahi
-    touchConsumed = true; // [NEW v16.2] synthetic pointerup se double-delete bachao
-    if(o.tap) o.tap();
+    if(!gesture || gesture.source !== 'touch') return;
+    const t = [...e.changedTouches].find(t => t.identifier === gesture.id);
+    if(t){ e.preventDefault(); finish(t.clientX, t.clientY); }
   }, {passive:false});
-
-  b.addEventListener('touchcancel', () => {
-    if(!usingTouch) return;
-    usingTouch = false;
-    b.classList.remove('pressed');
-    clearTimers();
-    clearRepeat(); repeating = false; touchConsumed = true; // [NEW v16.2]
-    if(multiPopEl) finishMultiSelect();
-    else hidePop();
+  b.addEventListener('touchcancel', e => {
+    if(gesture && gesture.source === 'touch' && [...e.changedTouches].some(t => t.identifier === gesture.id)) cancel();
   });
-
   b.addEventListener('pointerdown', e => {
-    if(usingTouch || e.pointerType === 'touch') return; // touch already handled upar
+    if(e.pointerType === 'touch' || e.button !== 0 || gesture) return;
     e.preventDefault();
-    long = false;
-    multiSelectedChar = null;
-    startX = e.clientX; startY = e.clientY;
-    b.classList.add('pressed');
-    hapticTap();
-    if(b.setPointerCapture){ try{ b.setPointerCapture(e.pointerId); }catch(err){} }
-    touchConsumed = false; // [NEW v16.2] naya gesture — purana guard reset
-    repeating = false;
-    startRepeat(); // [NEW v16.2] repeat-keys ke liye (mouse/pen par bhi)
-    if(o.lpMulti){
-      lpTimer = setTimeout(() => {
-        long = true;
-        multiPopEl = showMultiPop(b, o.lpMulti);
-        document.addEventListener('pointermove', onMultiMovePointer);
-      }, 300);
-    } else if(o.lp){
-      lpTimer = setTimeout(() => {
-        long = true;
-        showPop(b, o.lp, o.lps || '');
-        if(o.lpAction) o.lpAction();
-      }, 300);
-    }
+    begin('pointer', e.pointerId, e.clientX, e.clientY);
+    try { b.setPointerCapture(e.pointerId); } catch(err){}
   });
-
-  const up = e => {
-    if(usingTouch) return; // touchend/touchcancel already handled ise
-    if(touchConsumed){ touchConsumed = false; return; } // [NEW v16.2] touch-flow already handled — double-delete nahi
-    b.classList.remove('pressed');
-    clearTimers();
-    clearRepeat(); // [NEW v16.2] hold-delete band karo
-    if(multiPopEl){ finishMultiSelect(); return; }
-    hidePop();
-    if(long) return;
-    if(repeating){ repeating = false; return; } // [NEW v16.2] repeat chal chuka — extra tap nahi
-    if(o.tap) o.tap();
-  };
-
-  b.addEventListener('pointerup', up);
-  b.addEventListener('pointercancel', up);
-  b.addEventListener('pointerleave', () => { if(!long && !multiPopEl){ clearTimers(); clearRepeat(); repeating = false; hidePop(); } }); // [NEW v16.2] repeat bhi cancel
+  b.addEventListener('pointermove', e => {
+    if(gesture && gesture.source === 'pointer' && gesture.id === e.pointerId) choose(e.clientX, e.clientY);
+  });
+  b.addEventListener('pointerup', e => {
+    if(gesture && gesture.source === 'pointer' && gesture.id === e.pointerId && e.button === 0) finish(e.clientX, e.clientY);
+  });
+  b.addEventListener('pointercancel', e => {
+    if(gesture && gesture.source === 'pointer' && gesture.id === e.pointerId) cancel();
+  });
+  b.addEventListener('lostpointercapture', e => {
+    if(gesture && gesture.source === 'pointer' && gesture.id === e.pointerId) cancel();
+  });
+  b.addEventListener('contextmenu', e => e.preventDefault());
+  b.addEventListener('click', e => {
+    // Pointer/touch releases already performed their action. Enter/Space,
+    // screen-reader activation and element.click() have detail === 0.
+    if(e.detail === 0 && !gesture && !b.disabled && o.tap){ hapticTap(); o.tap(); }
+  });
 }
 
 /* ============ Spacebar Trackpad Drag-to-Move-Cursor ============ */
 const SPACE_DRAG_THRESHOLD = 6;
 const SPACE_PX_PER_CHAR = 16;
 function attachSpaceDrag(b){
-  let startX = null, startIdx = 0, dragging = false;
+  let active = null, dragging = false;
+  b.style.touchAction = 'none';
+  b.setAttribute('aria-label', 'Space / स्पेस; खींचकर कर्सर बदलें');
+  const cancel = () => {
+    active = null; dragging = false;
+    b.classList.remove('pressed');
+    activeKeyGestures.delete(cancel);
+  };
   b.addEventListener('pointerdown', e => {
+    if(e.button !== 0 || active) return;
     e.preventDefault();
-    startX = e.clientX;
-    startIdx = getCursorIndex();
+    active = {id:e.pointerId, x:e.clientX, idx:getCursorIndex()};
     dragging = false;
+    activeKeyGestures.add(cancel);
     b.classList.add('pressed');
-    if(b.setPointerCapture){ try{ b.setPointerCapture(e.pointerId); }catch(err){} }
+    try { b.setPointerCapture(e.pointerId); } catch(err){}
   });
   b.addEventListener('pointermove', e => {
-    if(startX === null) return;
-    const dx = e.clientX - startX;
+    if(!active || active.id !== e.pointerId) return;
+    const dx = e.clientX - active.x;
     if(!dragging && Math.abs(dx) < SPACE_DRAG_THRESHOLD) return;
-    if(!dragging) closeUndoGroup(); // cursor move hone wala hai — naya group shuru hoga
     dragging = true;
-    if(state.yukt) state.yukt = null;
-    const len = [...output].length;
-    const charsMoved = Math.trunc(dx / SPACE_PX_PER_CHAR);
-    const newIdx = Math.max(0, Math.min(startIdx + charsMoved, len));
-    state.cursorPos = (newIdx >= len) ? null : newIdx;
-    renderOutbox();
+    state.selAnchor = null;
+    teSetCursor(active.idx + Math.trunc(dx / SPACE_PX_PER_CHAR));
   });
-  const end = e => {
-    b.classList.remove('pressed');
-    if(!dragging) onSpace();
-    startX = null; dragging = false;
-  };
-  b.addEventListener('pointerup', end);
-  b.addEventListener('pointercancel', end);
-  b.addEventListener('pointerleave', e => {
-    if(startX === null) return;
-    const dx = e.clientX - startX;
-    if(Math.abs(dx) >= SPACE_DRAG_THRESHOLD) dragging = true;
+  b.addEventListener('pointerup', e => {
+    if(!active || active.id !== e.pointerId) return;
+    const tapped = !dragging;
+    cancel();
+    if(tapped) onSpace();
   });
+  b.addEventListener('pointercancel', e => { if(active && active.id === e.pointerId) cancel(); });
+  b.addEventListener('lostpointercapture', e => { if(active && active.id === e.pointerId) cancel(); });
+  b.addEventListener('click', e => { if(e.detail === 0 && !active) onSpace(); });
 }
+
 
 /* ============ SVG Icons (Crisp & Responsive) ============ */
 const GLOBE_SVG = '<svg viewBox="0 0 24 24" width="19" height="19" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.93 6h-2.95c-.32-1.25-.78-2.45-1.38-3.56 1.84.63 3.37 1.91 4.33 3.56zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2s.06 1.34.14 2H4.26zm.82 2h2.95c.32 1.25.78 2.45 1.38 3.56-1.84-.63-3.37-1.91-4.33-3.56zm2.95-8H5.08c.96-1.65 2.49-2.93 4.33-3.56C8.81 5.55 8.35 6.75 8.03 8zM12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96zM14.34 14H9.66c-.09-.66-.16-1.32-.16-2s.07-1.35.16-2h4.68c.09.65.16 1.32.16 2s-.07 1.34-.16 2zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95c-.96 1.65-2.49 2.93-4.33 3.56zM16.36 14c.08-.66.14-1.32.14-2s-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2h-3.38z"/></svg>';
@@ -3223,6 +3086,7 @@ function makeKey(glyph, label, opts){
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'key' + (opts.lp ? ' lp' : '') + (opts.cls ? ' ' + opts.cls : '');
+  if(opts.ariaLabel) b.setAttribute('aria-label', opts.ariaLabel);
   const g = document.createElement('span');
   g.className = 'glyph' + (opts.glyphCls ? ' ' + opts.glyphCls : '');
   if(typeof glyph === 'string' && glyph.startsWith('<svg')) {
@@ -3243,6 +3107,7 @@ function makeGlobeKey(){
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'key ctrl lp globeKey';
+  b.setAttribute('aria-label', 'Next language / अगली भाषा');
   const g = document.createElement('span');
   g.className = 'glyph';
   g.innerHTML = GLOBE_SVG;
@@ -3255,6 +3120,7 @@ function makeEmojiKey(){
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'key ctrl lp emojiKey';
+  b.setAttribute('aria-label', 'Comma / अल्पविराम; देर तक दबाकर Emoji खोलें');
   const g = document.createElement('span');
   g.className = 'glyph';
   g.innerHTML = EMOJI_ICON_SVG;
@@ -3271,6 +3137,7 @@ function makeEnterKey(){
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'key enter';
+  b.setAttribute('aria-label', 'Enter / नई पंक्ति');
   const g = document.createElement('span');
   g.className = 'glyph';
   g.innerHTML = ENTER_SVG;
@@ -3284,6 +3151,7 @@ function makeBackspaceKey(opts){
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'key danger' + (opts.cls ? ' ' + opts.cls : '');
+  b.setAttribute('aria-label', 'Backspace / पिछला अक्षर हटाएँ');
   const g = document.createElement('span');
   g.className = 'glyph';
   g.innerHTML = BACKSPACE_SVG;
@@ -3461,7 +3329,7 @@ const DEV_VS_R = 'ृ';
    ho jaata hai (Gondi panel voice-typing ke liye).
    User-confirmed rule: jin Devanagari nukta-variants (क़,ख़,ग़,ज़,ड़,ढ़,फ़,य़)
    ka Gondi mein koi seedha/alag character nahi hai, unke liye base
-   consonant ka Gondi equivalent use hota hai (nukta ignore).
+   consonant + Gondi NUKTA use hota hai.
 */
 const DEV_TO_GONDI = {};
 for(const gondiChar in GONDI_TO_DEV){ DEV_TO_GONDI[GONDI_TO_DEV[gondiChar]] = gondiChar; }
@@ -3490,7 +3358,8 @@ const DEV_NUKTA_FALLBACK = {
   'क़':CP.KA+CP.NUKTA, 'ख़':CP.KHA+CP.NUKTA, 'ग़':CP.GA+CP.NUKTA, 'ज़':CP.JA+CP.NUKTA,
   'ड़':CP.DDA+CP.NUKTA, 'ढ़':CP.DDHA+CP.NUKTA, 'फ़':CP.PHA+CP.NUKTA, 'य़':CP.YA+CP.NUKTA,
   // [DEEP FIX] composite nukta-variants jo pehle chhoot gaye the
-  'ऱ':CP.RA, 'ऩ':CP.NNA, 'ऴ':CP.LLA
+  'ऱ':CP.RA, 'ऩ':CP.NNA, 'ऴ':CP.LLA,
+  'ऱ':CP.RA, 'ऩ':CP.NNA, 'ऴ':CP.LLA
 };
 for(const ch in DEV_NUKTA_FALLBACK){ DEV_TO_GONDI[ch] = DEV_NUKTA_FALLBACK[ch]; }
 // [DEEP FIX] Candra vowels — Unicode: SIGN CANDRA "used for transcribing foreign
@@ -3527,72 +3396,49 @@ GONDI_CLUSTER_SPECIAL['ज' + 'ञ'] = CP.JNYA;
 GONDI_CLUSTER_SPECIAL['त' + 'र'] = CP.TRA;
 
 function convertDevanagariToGondi(text){
-  text = text.normalize('NFC'); // [FIX v16.3] precomposed ड़/क़/ख़... (U+0958-U+095F) ek roop me
-  const chars = Array.from(text);
-  let out = '';
-  for(let i=0; i<chars.length; i++){
-    const ch = chars[i];
-    if(ch === DEV_NUKTA_MARK){ // [FIX v16.3] nukta-mark ab skip nahi hota —
-      // pichhle Gondi vyanjan par 11D42 NUKTA jodta hai (ड़ = 𑴘+𑵂, keyboard convention)
-      const lastOutN = Array.from(out).slice(-1)[0];
-      if(CONSONANTS.has(lastOutN)) out += CP.NUKTA;
-      continue;
-    }
-
-    // ---------- [DEEP FIX] अकेला '्' (जो क्लस्टर-नियम में पकड़ा नहीं गया —
-    // ज़ंजीर-क्लस्टर जैसे ष्ट्र में दूसरा '्' यहाँ आता है) ----------
-    if(ch === DEV_VIRAMA_MARK){
-      const prevDev = chars[i-1];
-      const nextDev = chars[i+1];
-      const lastOut = Array.from(out).slice(-1)[0];
-      if(CONSONANTS.has(lastOut) && prevDev !== undefined && DEV_CONS_SET.has(prevDev)
-         && nextDev !== undefined && DEV_CONS_SET.has(nextDev)){
-        if(prevDev === 'र'){
-          // र ् व्यंजन → पहले लिखा रा हटाकर रेफा + व्यंजन
-          out = Array.from(out).slice(0,-1).join('');
-          out += CP.REPHA + ((nextDev === 'र') ? CP.RA : (DEV_TO_GONDI[nextDev] || nextDev));
-          i += 1;
-        } else if(GONDI_CLUSTER_SPECIAL[prevDev + nextDev]){
-          // त ् र जैसे जोड़े जो पहले छूट गए — पहले अक्षर को विशेष अक्षर से बदलो
-          out = Array.from(out).slice(0,-1).join('');
-          out += GONDI_CLUSTER_SPECIAL[prevDev + nextDev];
-          i += 1;
-        } else if(nextDev === 'र'){
-          out += CP.RAKARA; // व्यंजन + र् → रा-कार
-          i += 1;
-        } else {
-          out += CP.VIRAMA; // सामान्य संयुक्ताक्षर
-        }
-      } else {
-        out += CP.HALANTA;  // शब्द-अंत / अकेला हलन्त — 11D44 HALANTA (visible)
-      }
-      continue;
-    }
-
-    // ---------- [DEEP FIX] क्लस्टर: व्यंजन + ् + व्यंजन ----------
-    if(DEV_CONS_SET.has(ch) && chars[i+1] === DEV_VIRAMA_MARK && (i+2) < chars.length && DEV_CONS_SET.has(chars[i+2])){
-      const c1 = ch, c2 = chars[i+2];
-      let special = GONDI_CLUSTER_SPECIAL[c1 + c2] || null;   // क्ष→𑴳? no: KSSA etc.
-      if(special === null){
-        if(c1 === 'र'){
-          // र् + व्यंजन → क्लस्टर की शुरुआत → REPHA (11D46)
-          special = CP.REPHA + ((c2 === 'र') ? CP.RA : (DEV_TO_GONDI[c2] || c2));
-        } else if(c2 === 'र'){
-          // व्यंजन + र् → क्लस्टर का अंत → व्यंजन + रा-कार
-          // (ऊपर त्र जैसी जोड़ी पहले ही पकड़ी जा चुकी है)
-          special = (DEV_TO_GONDI[c1] || c1) + CP.RAKARA;
-        } else {
-          special = (DEV_TO_GONDI[c1] || c1) + CP.VIRAMA + (DEV_TO_GONDI[c2] || c2);
-        }
-      }
-      out += special;
-      i += 2; // virama + C2 consume ho gaye
-      continue;
-    }
-
-    out += (DEV_TO_GONDI[ch] !== undefined) ? DEV_TO_GONDI[ch] : ch; // match na mile to as-is rakho (space/punctuation/digits)
+  const chars = [...text.normalize('NFD')];
+  const tokens = [];
+  for(const ch of chars){
+    const previous = tokens[tokens.length - 1];
+    if(ch === DEV_NUKTA_MARK && previous && DEV_CONS_SET.has(previous[0])){
+      if(!previous.endsWith(DEV_NUKTA_MARK)) tokens[tokens.length - 1] += ch;
+    } else tokens.push(ch);
   }
-  return out;
+  const isCons = token => !!token && DEV_CONS_SET.has(token[0]) &&
+    (token.length === 1 || (token.length === 2 && token[1] === DEV_NUKTA_MARK));
+  const mapToken = token => {
+    if(DEV_TO_GONDI[token] !== undefined) return DEV_TO_GONDI[token];
+    if(isCons(token) && token.endsWith(DEV_NUKTA_MARK))
+      return (DEV_TO_GONDI[token[0]] || token[0]) + CP.NUKTA;
+    return token === DEV_NUKTA_MARK ? '' : token;
+  };
+  const parts = [];
+  for(let i = 0; i < tokens.length; i++){
+    const token = tokens[i];
+    if(!isCons(token)){
+      parts.push(token === DEV_VIRAMA_MARK ? CP.HALANTA : mapToken(token));
+      continue;
+    }
+    const cluster = [token];
+    while(tokens[i + 1] === DEV_VIRAMA_MARK && isCons(tokens[i + 2])){
+      cluster.push(tokens[i + 2]); i += 2;
+    }
+    let prefix = '';
+    if(cluster.length > 1 && cluster[0] === 'र'){
+      prefix = CP.REPHA;
+      cluster.shift();
+    }
+    const units = [];
+    for(let j = 0; j < cluster.length; j++){
+      const special = GONDI_CLUSTER_SPECIAL[cluster[j] + (cluster[j + 1] || '')];
+      if(special){ units.push(special); j++; }
+      else if(j === cluster.length - 1 && cluster[j] === 'र' && units.length){
+        units[units.length - 1] += CP.RAKARA;
+      } else units.push(mapToken(cluster[j]));
+    }
+    parts.push(prefix + units.join(CP.VIRAMA));
+  }
+  return parts.join('');
 }
 
 function buildHindiPanel(){
@@ -3682,7 +3528,7 @@ function updateQwertyAutoCap(){
   if(qwertyManualLock){
     qwertyShiftMode = qwertyManualLock;
   } else {
-    const chars = [...output];
+    const chars = [...output].slice(0, getCursorIndex());
     let shouldCap;
     if(chars.length === 0){
       shouldCap = true;
@@ -3711,6 +3557,7 @@ function syncQwertyKeyCase(){
   if(shiftBtn){
     shiftBtn.classList.toggle('shift-oneshot', qwertyShiftMode === 'oneshot');
     shiftBtn.classList.toggle('shift-caps', qwertyShiftMode === 'caps');
+    shiftBtn.setAttribute('aria-pressed', String(qwertyShiftMode !== 'lower'));
   }
 }
 
@@ -3732,8 +3579,8 @@ function onQwertyShift(){
 
 function onQwertyLetterTap(ch){
   const cased = (qwertyShiftMode === 'lower') ? ch : ch.toUpperCase();
-  insertCharacter(cased);
   if(qwertyManualLock !== 'caps') qwertyManualLock = null;
+  insertCharacter(cased);
 }
 
 function buildQwertyPanel(){
@@ -3744,7 +3591,7 @@ function buildQwertyPanel(){
     if(ri === 1) row.classList.add('row-indent');
     
     if(ri === 2){
-      const shiftBtn = makeKey(SHIFT_SVG, '', {cls:'ctrl', tap:onQwertyShift});
+      const shiftBtn = makeKey(SHIFT_SVG, '', {cls:'ctrl', tap:onQwertyShift, ariaLabel:'Shift / बड़े-छोटे अक्षर'});
       shiftBtn.id = 'qwertyShiftKey';
       shiftBtn.style.flex = '1.6';
       row.appendChild(shiftBtn);
@@ -4020,13 +3867,16 @@ function buildNumQPanel(){
 /* ============ Dynamic Row 1 (Vowel / Matra State Switch) ============ */
 function renderRow1(){
   const row1 = $('row1');
-  if(!row1) return;
+  if(!row1 || row1.dataset.mode === state.row1) return;
+  const focusedIndex = [...row1.children].indexOf(document.activeElement);
+  row1.dataset.mode = state.row1;
   row1.innerHTML = '';
   const defs = (state.row1 === 'matra') ? MATRA_KEYS : VOWEL_KEYS;
   defs.forEach(d => {
     const b = makeKey(d.g, '', {tap: () => onMatra(d.g)});
     row1.appendChild(b);
   });
+  if(focusedIndex >= 0) row1.children[focusedIndex]?.focus({preventScroll:true});
 }
 
 function renderVocalicR(){
@@ -4037,27 +3887,32 @@ function renderVocalicR(){
   if(g) g.textContent = text;
   if(l) l.textContent = '';
   k.title = (state.vc === 'combo' && state.vcCons) ? 'Vocalic-R Combo' : 'Vocalic-R';
+  k.setAttribute('aria-label', 'Vocalic-R / ऋ की मात्रा');
 }
 
 function renderRow1H(){
   const row1 = $('row1H');
-  if(!row1) return;
+  if(!row1 || row1.dataset.mode === state.row1) return;
+  const focusedIndex = [...row1.children].indexOf(document.activeElement);
+  row1.dataset.mode = state.row1;
   row1.innerHTML = '';
   const defs = (state.row1 === 'matra') ? DEV_MATRA_KEYS : DEV_VOWEL_KEYS;
   defs.forEach(d => {
     const b = makeKey(d.s, '', {tap: () => onMatra(d.g)});
     row1.appendChild(b);
   });
+  if(focusedIndex >= 0) row1.children[focusedIndex]?.focus({preventScroll:true});
 }
 
 function renderVocalicRH(){
   const k = $('vocalicRKeyH');
   if(!k) return;
   const g = k.querySelector('.glyph'), l = k.querySelector('.lbl');
-  const text = (state.vc === 'combo' && state.vcCons) ? ((GONDI_TO_DEV[state.vcCons] || '') + DEV_VS_R) : DEV_VS_R;
+  const text = (state.vc === 'combo' && state.vcCons) ? ((GONDI_TO_DEV[[...state.vcCons][0]] || '') + (state.vcCons.includes(CP.NUKTA) ? '़' : '') + DEV_VS_R) : DEV_VS_R;
   if(g) g.textContent = text;
   if(l) l.textContent = '';
   k.title = (state.vc === 'combo' && state.vcCons) ? 'Vocalic-R Combo' : 'Vocalic-R';
+  k.setAttribute('aria-label', 'Vocalic-R / ऋ की मात्रा');
 }
 
 /* ============ Info / About Modal ============ */
@@ -4070,11 +3925,11 @@ $('infoOverlay').addEventListener('click', e => { if(e.target.id === 'infoOverla
 /* ============ [NEW] Settings Panel ============ */
 const SET_HAPTIC_KEY = 'mg_haptic_enabled';
 function isHapticEnabled(){
-  const v = localStorage.getItem(SET_HAPTIC_KEY);
+  const v = storageGet(SET_HAPTIC_KEY);
   return v === null ? true : v === '1'; // default: ON
 }
 function setHapticEnabled(v){
-  try { localStorage.setItem(SET_HAPTIC_KEY, v ? '1' : '0'); } catch(e){}
+  try { storageSet(SET_HAPTIC_KEY, v ? '1' : '0'); } catch(e){}
 }
 function updateHapticToggleUI(){
   $('setHapticToggle').classList.toggle('on', isHapticEnabled());
@@ -4102,11 +3957,11 @@ $('setOpenThemeBtn').addEventListener('click', () => { closeSettings(); openThem
 
 /* ============ [NEW] Theme Panel ============ */
 const SET_THEME_KEY = 'mg_theme';
-function getSavedTheme(){ return localStorage.getItem(SET_THEME_KEY) || 'dark'; }
+function getSavedTheme(){ return storageGet(SET_THEME_KEY) || 'dark'; }
 function applyTheme(name){
   if(name === 'dark'){ document.documentElement.removeAttribute('data-theme'); }
   else { document.documentElement.setAttribute('data-theme', name); }
-  try { localStorage.setItem(SET_THEME_KEY, name); } catch(e){}
+  try { storageSet(SET_THEME_KEY, name); } catch(e){}
   document.querySelectorAll('#themeGrid .themeOpt').forEach(el => {
     el.classList.toggle('current', el.dataset.theme === name);
   });
@@ -4342,17 +4197,18 @@ const PIN_STORAGE_KEY = 'mg_pinned_ext_ids';
 const MAX_PINNED = 6; // [FIX] Gboard mein 2023 redesign ke baad 4 se 6 slots ho gaye the
 function loadPinnedIds(){
   try {
-    const raw = localStorage.getItem(PIN_STORAGE_KEY);
+    const raw = storageGet(PIN_STORAGE_KEY);
     // [FIX] Mic ab pin-system ka part nahi (fixed slot hai), isliye default
     // empty array. Purane localStorage data se bhi 'mic' migrate/hata diya
     // taaki koi ghost/duplicate reference na bache.
     if(raw === null) return [];
     const ids = JSON.parse(raw) || [];
-    return ids.filter(id => id !== 'mic');
+    if(!Array.isArray(ids)) return [];
+    return [...new Set(ids)].filter(id => id !== 'mic' && EXT_ITEMS.some(item => item.id === id && item.enabled)).slice(0, MAX_PINNED);
   }
   catch(e){ return []; }
 }
-function savePinnedIds(ids){ try { localStorage.setItem(PIN_STORAGE_KEY, JSON.stringify(ids)); } catch(e){} }
+function savePinnedIds(ids){ try { storageSet(PIN_STORAGE_KEY, JSON.stringify(ids)); } catch(e){} }
 let pinnedExtIds = loadPinnedIds();
 function isPinned(id){ return pinnedExtIds.includes(id); }
 function pinItem(id){
@@ -4384,11 +4240,11 @@ function unpinItem(id){
 const MIC_PIN_KEY = 'mg_mic_pinned';
 function isMicPinned(){
   try {
-    const raw = localStorage.getItem(MIC_PIN_KEY);
+    const raw = storageGet(MIC_PIN_KEY);
     return raw === null ? true : raw === '1'; // default: pinned (Gboard jaisa)
   } catch(e){ return true; }
 }
-function saveMicPinned(v){ try { localStorage.setItem(MIC_PIN_KEY, v ? '1' : '0'); } catch(e){} }
+function saveMicPinned(v){ try { storageSet(MIC_PIN_KEY, v ? '1' : '0'); } catch(e){} }
 function renderMicSlot(){
   const btn = $('micFixedBtn');
   if(!btn) return;
@@ -4869,7 +4725,7 @@ function extClosePopup(){
 
 $('toolbarToggleBtn').addEventListener('click', () => {
   hideUndoRedoPills(); // grid-icon dabane par wapas pinned-tools state mein
-  if($('toolbarVoiceContent').style.display !== 'none'){ micStop(); hideVoiceToolbar(); return; }
+  if($('toolbarVoiceContent').style.display !== 'none'){ micForceStop(); return; }
   if($('textEditPanel').classList.contains('open')){ closeTextEditPanel(); return; }
   if($('clipboardPanel').classList.contains('open')){ closeClipboardPanel(); return; }
   if($('emojiPanel').classList.contains('open')){ closeEmoji(); return; }
@@ -4929,6 +4785,7 @@ function teSetCursor(newIdx){
   const len = [...output].length;
   newIdx = Math.max(0, Math.min(newIdx, len));
   state.cursorPos = (newIdx >= len) ? null : newIdx;
+  syncImeContext();
   closeUndoGroup(); // cursor move se naya undo-group shuru ho
   render();
 }
@@ -4953,6 +4810,8 @@ function teMoveVertical(dir){
   teSetCursor(tOffset + Math.min(curCol, lines[targetLine].length));
 }
 function teToggleSelect(){
+  syncImeContext();
+  closeUndoGroup();
   if(state.selAnchor === null){
     state.selAnchor = getCursorIndex();
     toast('🔤 Selection ON — arrows se extend करें');
@@ -4966,6 +4825,8 @@ function teSelectAll(){
   if(!len){ toast('⚠️ कुछ भी typed नहीं है'); return; }
   state.selAnchor = 0;
   state.cursorPos = len;
+  syncImeContext();
+  closeUndoGroup();
   render();
 }
 async function teCopy(){
@@ -4980,24 +4841,11 @@ async function teCopy(){
 // usko replace karte hue).
 function teInsertTextAtCursor(text){
   if(!text) return;
-  recordUndoCheckpoint('paste');
   closeUndoGroup();
-  const pasted = [...text];
-  const range = getSelRange();
-  const chars = [...output];
-  let insertAt;
-  if(range){
-    chars.splice(range[0], range[1] - range[0], ...pasted);
-    insertAt = range[0] + pasted.length;
-  } else {
-    const idx = getCursorIndex();
-    chars.splice(idx, 0, ...pasted);
-    insertAt = idx + pasted.length;
-  }
-  output = chars.join('');
-  state.selAnchor = null;
-  state.yukt = null;
-  state.cursorPos = (insertAt >= chars.length) ? null : insertAt;
+  recordUndoCheckpoint('paste');
+  const range = getSelRange() || [getCursorIndex(), getCursorIndex()];
+  replaceTextRange(range[0], range[1], text);
+  closeUndoGroup();
   render();
   toast('📥 Paste हो गया');
 }
@@ -5043,36 +4891,31 @@ $('pasteInsertBtn').addEventListener('click', () => {
 async function teCut(){
   const range = getSelRange();
   if(!range){ toast('⚠️ कुछ भी select नहीं है'); return; }
+  const original = output;
+  const originalCursor = state.cursorPos, originalAnchor = state.selAnchor;
   const text = [...output].slice(range[0], range[1]).join('');
-  const ok = await copyToClipboard(text);
-  recordUndoCheckpoint('delete');
+  let ok = false;
+  try { ok = await copyToClipboard(text); } catch(e){}
+  if(!ok){ toast('⚠️ Copy असफल — टेक्स्ट नहीं हटाया गया'); return; }
+  // The asynchronous clipboard operation must not delete a newer selection.
+  if(output !== original || state.cursorPos !== originalCursor || state.selAnchor !== originalAnchor){
+    toast('📋 Copy हो गया; टेक्स्ट/चयन बदलने के कारण Cut रद्द किया गया');
+    return;
+  }
   closeUndoGroup();
-  const chars = [...output];
-  chars.splice(range[0], range[1] - range[0]);
-  output = chars.join('');
-  state.selAnchor = null;
-  state.yukt = null;
-  state.cursorPos = (range[0] >= chars.length) ? null : range[0];
+  recordUndoCheckpoint('cut');
+  replaceTextRange(range[0], range[1], '');
+  closeUndoGroup();
   render();
-  toast(ok ? '✂️ Cut हो गया' : '⚠️ Cut: text delete हुआ, पर clipboard copy fail');
+  toast('✂️ Cut हो गया');
 }
 
 function teDeleteActive(){
-  const range = getSelRange();
-  if(range){
-    recordUndoCheckpoint('delete');
-    closeUndoGroup();
-    const chars = [...output];
-    chars.splice(range[0], range[1] - range[0]);
-    output = chars.join('');
-    state.selAnchor = null;
-    state.yukt = null;
-    state.cursorPos = (range[0] >= chars.length) ? null : range[0];
-    render();
-  } else {
-    backspace();
-  }
+  if(getSelRange()) closeUndoGroup();
+  backspace();
+  closeUndoGroup();
 }
+
 function teHome(){ state.selAnchor = null; teSetCursor(0); }
 function teEnd(){ state.selAnchor = null; teSetCursor([...output].length); }
 
@@ -5103,17 +4946,28 @@ const CP_TIPS_SEEN_KEY = 'mgClipboardTipsSeen';
 const CP_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 function cpLoad(){
-  try { return JSON.parse(localStorage.getItem(CP_STORAGE_KEY)) || []; }
-  catch(e){ return []; }
+  try {
+    const raw = JSON.parse(storageGet(CP_STORAGE_KEY));
+    if(!Array.isArray(raw)) return [];
+    const seen = new Set();
+    return raw.filter(c => {
+      if(!c || typeof c.id !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(c.id) ||
+         seen.has(c.id) || typeof c.text !== 'string' || typeof c.pinned !== 'boolean' ||
+         !Number.isFinite(c.timestamp) || c.timestamp < 0) return false;
+      seen.add(c.id);
+      return true;
+    }).map(c => ({id:c.id, text:c.text, pinned:c.pinned, timestamp:c.timestamp}));
+  } catch(e){ return []; }
 }
+
 function cpSave(list){
-  try { localStorage.setItem(CP_STORAGE_KEY, JSON.stringify(list)); } catch(e){}
+  try { storageSet(CP_STORAGE_KEY, JSON.stringify(list)); } catch(e){}
 }
 function cpIsEnabled(){
-  return localStorage.getItem(CP_ENABLED_KEY) === '1';
+  return storageGet(CP_ENABLED_KEY) === '1';
 }
 function cpSetEnabled(v){
-  try { localStorage.setItem(CP_ENABLED_KEY, v ? '1' : '0'); } catch(e){}
+  try { storageSet(CP_ENABLED_KEY, v ? '1' : '0'); } catch(e){}
 }
 function cpPruneExpired(){
   const now = Date.now();
@@ -5272,14 +5126,14 @@ function cpRenderBody(){
   body.innerHTML = '';
   $('cpEditBtn').disabled = false;
 
-  if(!localStorage.getItem(CP_TIPS_SEEN_KEY)){
-    localStorage.setItem(CP_TIPS_SEEN_KEY, '1');
+  if(!storageGet(CP_TIPS_SEEN_KEY)){
+    storageSet(CP_TIPS_SEEN_KEY, '1');
     const grid = document.createElement('div');
     grid.className = 'cpTipGrid';
-    grid.appendChild(cpTipCard('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>', 'Welcome to Gboard clipboard, any text that you copy will be saved here.'));
+    grid.appendChild(cpTipCard('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>', 'Mgboard Clipboard चालू होने पर कॉपी किया टेक्स्ट इस ब्राउज़र में सहेजा जाता है।'));
     grid.appendChild(cpTipCard('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"/></svg>', 'Tap on a clip to paste it in the text box.'));
     grid.appendChild(cpTipCard('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>', 'Use the edit icon to pin, add or delete clips.'));
-    grid.appendChild(cpTipCard('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>', 'Touch and hold a clip to pin it. Unpinned clips will be deleted after 1 hour.'));
+    grid.appendChild(cpTipCard('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>', 'देर तक दबाकर Pin करें। बिना Pin वाले clips एक घंटे बाद ऐप चलने पर साफ होते हैं।'));
     body.appendChild(grid);
     return;
   }
@@ -5291,7 +5145,7 @@ function cpRenderBody(){
     card.innerHTML = `
       <span class="cpOffIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"/></svg></span>
       <span class="cpOffTitle">Copy more for faster pasting</span>
-      <span class="cpOffDesc">Gboard's clipboard lets you copy text and images, keeping them for one hour, to quickly paste many things at once.</span>
+      <span class="cpOffDesc">टेक्स्ट इस ब्राउज़र में बिना encryption सहेजा जाएगा। अनुमति मिलने पर पेज पर लौटने और पैनल खुले रहने पर बाहरी Clipboard पढ़ा जा सकता है। Pin किए clips मिटाने तक रहेंगे। बाकी clips एक घंटे बाद ऐप चलने पर साफ होंगे।</span>
       <button class="cpOffBtn" id="cpTurnOnBtn" type="button">Turn on clipboard</button>`;
     body.appendChild(card);
     $('cpTurnOnBtn').addEventListener('click', () => {
@@ -5663,10 +5517,13 @@ $('clearBtn').addEventListener('click', () => {
   state.lastCons = null;
   state.lastInput = null;
   state.cursorPos = null;
+  state.selAnchor = null;
+  syncImeContext();
   render();
   toast('↺ Cleared');
 });
 
+cpPruneExpired();
 render();
 renderPinnedRow(); // [NEW] page load par saved pinned toolbar buttons dikhao
 renderMicSlot(); // [NEW] page load par saved mic pin-state (on/off) apply karo

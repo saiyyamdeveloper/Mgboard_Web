@@ -1,0 +1,71 @@
+
+> mgboard-web@16.3.1 test
+> npm run check:sync && node tests/regression.cjs
+
+
+> mgboard-web@16.3.1 check:sync
+> node scripts/sync-html.cjs --check
+
+PASS: standalone HTML files are byte-identical.
+PASS startup builds all keyboard panels
+PASS paste cannot make Yukt overwrite a non-consonant
+PASS pasted consonant establishes fresh context
+PASS nukta sequence advances two codepoints before suffix
+PASS nukta sequence at end enables matras
+PASS multi-codepoint emoji inserted before suffix keeps caret after it
+PASS Yukt ordinary conjunct before suffix
+PASS Yukt REPHA before suffix
+PASS Yukt RA-KARA with nukta and matra before suffix
+PASS pending Yukt followed by space commits HALANTA before suffix
+PASS pending REPHA followed by Enter retains RA and HALANTA
+PASS cursor movement cancels pending composition
+PASS composition validates its source text before replacement
+PASS backspace context comes from cursor, not document tail
+PASS vocalic-R does not duplicate a previously typed consonant
+PASS paste replaces selection and refreshes IME
+PASS large paste avoids JavaScript spread-argument limits
+PASS selection deletion clears stale consonant context
+PASS failed Cut keeps text and selection
+PASS throwing clipboard helper does not delete selected text
+PASS successful Cut removes selection and remains undoable
+PASS Cut does not delete a document edited while copy was pending
+PASS Cut does not delete a selection moved while copy was pending
+PASS Undo and Redo restore middle composition and caret
+PASS new edit after Undo invalidates Redo
+PASS Clear resets selection and supports Undo
+PASS converter handles precomposed and decomposed nukta clusters
+PASS converter handles plain nukta and terminal HALANTA
+PASS converter handles dedicated and chained conjuncts
+PASS converter handles REPHA, RA-KARA and nukta RA clusters
+PASS converter retains punctuation and maps Devanagari/Latin digits
+PASS one-shot Shift affects only the next letter
+PASS Caps Lock remains active across letters
+PASS auto-capitalization follows cursor position
+PASS malformed clipboard storage does not crash rendering
+PASS stored clipboard IDs and records are validated
+PASS unpinned expired clips are pruned but pinned clips remain
+PASS user text renders as text, not HTML
+PASS native Enter and Space activate a focused key once each
+PASS mouse clicks do not insert duplicate characters
+PASS mouse long-press emits one nukta sequence and enables matras
+PASS Space key keyboard activation inserts only one space
+PASS pointercancel is not a key tap
+PASS spacebar pointercancel inserts nothing
+PASS spacebar drag moves caret without inserting a space
+PASS matra-row keyboard activation keeps focus in the replacement row
+PASS icon-only keyboard controls have accessible names
+PASS mobile touch taps do not double-insert
+PASS mobile long-press commits only its alternate on release
+PASS mobile cancelled long-press does not insert an alternate
+PASS mobile backspace hold repeats and stops on release
+PASS mobile symbol popup drag inserts exactly the selected symbol
+PASS blocked storage still supports typing, settings, themes and clipboard
+PASS quota failure falls back to memory instead of stale persistent values
+PASS Hindi and Gondi dictation both output Gondi; English stays English
+PASS voice privacy cancellation never starts recording
+PASS cancelled voice session cannot insert a late result
+PASS old recognizer callbacks cannot reset a newer voice session
+PASS speech constructor or start errors do not leave active session
+PASS successful voice result is one undoable edit
+
+60/60 tests passed.

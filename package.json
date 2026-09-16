@@ -1,0 +1,14 @@
+{
+  "name": "mgboard-web",
+  "private": true,
+  "version": "16.3.1",
+  "description": "Masaram Gondi standalone web keyboard and regression tests",
+  "scripts": {
+    "sync": "node scripts/sync-html.cjs",
+    "check:sync": "node scripts/sync-html.cjs --check",
+    "test": "npm run check:sync && node tests/regression.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}
